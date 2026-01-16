@@ -1,34 +1,496 @@
+/**
+ * PDF Calendar Generator - ChurchTools Extension
+ * Main Entry Point
+ */
+
 import type { Person } from './utils/ct-types';
 import { churchtoolsClient } from '@churchtools/churchtools-client';
+import {
+  fetchCalendars,
+  fetchAppointments,
+  fetchAppointmentTags,
+  filterAppointmentsByVisibility,
+  filterAppointmentsByTags,
+  sortAppointments,
+} from './services/churchtools-api';
+import { calculateDateRange, formatMonthYear } from './utils/date-utils';
+import { exportToExcel, downloadBlob, generateFilename } from './xlsx/ExcelExporter';
+import { CalendarBuilder, generatePdfFilename, downloadBlob as downloadPdfBlob } from './pdf/CalendarBuilder';
+import type { CTCalendar, CTTag, CTAppointment, VisibilityFilter, TimeRange, MonthYear } from './types/calendar.types';
+import './styles/calendar.css';
 
-// only import reset.css in development mode to keep the production bundle small and to simulate CT environment
+// Load reset CSS only in development mode
 if (import.meta.env.MODE === 'development') {
-    import('./utils/reset.css');
+  import('./utils/reset.css');
 }
 
 declare const window: Window &
-    typeof globalThis & {
-        settings: {
-            base_url?: string;
-        };
+  typeof globalThis & {
+    settings: {
+      base_url?: string;
     };
+  };
 
+// Configure ChurchTools Client
 const baseUrl = window.settings?.base_url ?? import.meta.env.VITE_BASE_URL;
 churchtoolsClient.setBaseUrl(baseUrl);
 
+// Login in development mode
 const username = import.meta.env.VITE_USERNAME;
 const password = import.meta.env.VITE_PASSWORD;
 if (import.meta.env.MODE === 'development' && username && password) {
-    await churchtoolsClient.post('/login', { username, password });
+  await churchtoolsClient.post('/login', { username, password });
 }
 
+// Export extension key
 const KEY = import.meta.env.VITE_KEY;
 export { KEY };
 
-const user = await churchtoolsClient.get<Person>(`/whoami`);
+// Global state variables
+let calendars: CTCalendar[] = [];
+let tags: CTTag[] = [];
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <div style="display: flex; place-content: center; place-items: center; height: 100vh;">
-    <h1>Welcome ${[user.firstName, user.lastName].join(' ')}</h1>
-  </div>
-`;
+// ============================================
+// App Initialization
+// ============================================
+
+async function initApp() {
+  const app = document.querySelector<HTMLDivElement>('#app')!;
+
+  // Show loading state
+  app.innerHTML = `
+    <div class="pdf-calendar-container">
+      <h1>PDF Kalender Generator</h1>
+      <div class="loading">
+        <div class="spinner"></div>
+        <span>Lade Daten...</span>
+      </div>
+    </div>
+  `;
+
+  try {
+    // Load data in parallel
+    const [user, loadedCalendars, loadedTags] = await Promise.all([
+      churchtoolsClient.get<Person>('/whoami'),
+      fetchCalendars(),
+      fetchAppointmentTags(),
+    ]);
+
+    calendars = loadedCalendars;
+    tags = loadedTags;
+
+    // Render UI
+    renderApp(app, user);
+  } catch (error) {
+    console.error('Fehler beim Laden:', error);
+    app.innerHTML = `
+      <div class="pdf-calendar-container">
+        <h1>PDF Kalender Generator</h1>
+        <div class="error-message">
+          Fehler beim Laden der Daten. Bitte versuchen Sie es erneut.
+          <br><small>${error instanceof Error ? error.message : 'Unbekannter Fehler'}</small>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// ============================================
+// UI Rendering
+// ============================================
+
+function renderApp(app: HTMLDivElement, user: Person) {
+  // Group calendars by public/private
+  const publicCalendars = calendars.filter((c) => c.isPublic);
+  const privateCalendars = calendars.filter((c) => !c.isPublic);
+
+  app.innerHTML = `
+    <div class="pdf-calendar-container">
+      <h1>PDF Kalender Generator</h1>
+      <p style="margin-bottom: 20px; color: #666;">
+        Willkommen, ${user.firstName} ${user.lastName}!
+      </p>
+
+      <form id="calendar-form" class="calendar-form">
+        <div class="form-columns">
+          <!-- Left column: Calendars -->
+          <div class="form-column">
+            <div class="form-group">
+              <label>Kalender:</label>
+              <div class="checkbox-list" id="calendar-list">
+                ${publicCalendars.length > 0 ? '<div class="list-section-header">Öffentliche Kalender</div>' : ''}
+                ${publicCalendars.map((cal) => renderCalendarCheckbox(cal)).join('')}
+                ${privateCalendars.length > 0 ? '<div class="list-section-header">Gruppenkalender</div>' : ''}
+                ${privateCalendars.map((cal) => renderCalendarCheckbox(cal)).join('')}
+              </div>
+            </div>
+          </div>
+
+          <!-- Right column: Tags -->
+          <div class="form-column">
+            <div class="form-group">
+              <label>Tags: <span class="hint">(keine Auswahl = alle Termine)</span></label>
+              <div class="checkbox-list" id="tag-list">
+                ${tags.length > 0 ? tags.map((tag) => renderTagCheckbox(tag)).join('') : '<div class="empty-hint">Keine Tags verfügbar</div>'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Time range -->
+        <div class="form-group">
+          <label for="timeRange">Zeitraum:</label>
+          <select name="timeRange" id="timeRange">
+            <option value="current">Aktueller Monat</option>
+            <option value="previous">Vorheriger Monat</option>
+            <option value="next" selected>Nächster Monat</option>
+            <option value="year">Ganzes Jahr (12 Seiten)</option>
+          </select>
+        </div>
+
+        <!-- Format options -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="pageSize">Papierformat:</label>
+            <select name="pageSize" id="pageSize">
+              <option value="A4" selected>A4</option>
+              <option value="A3">A3</option>
+              <option value="A2">A2</option>
+              <option value="A5">A5</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="orientation">Ausrichtung:</label>
+            <select name="orientation" id="orientation">
+              <option value="landscape">Querformat</option>
+              <option value="portrait" selected>Hochformat</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="visibility">Sichtbarkeit:</label>
+            <select name="visibility" id="visibility">
+              <option value="public" selected>Nur öffentliche</option>
+              <option value="private">Nur private</option>
+              <option value="all">Alle</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Options -->
+        <div class="section-header">Optionen</div>
+
+        <div class="options-row">
+          <div class="checkbox-option">
+            <input type="checkbox" name="showEndTime" id="showEndTime">
+            <label for="showEndTime">Endzeit anzeigen</label>
+          </div>
+
+          <div class="checkbox-option">
+            <input type="checkbox" name="useColors" id="useColors" checked>
+            <label for="useColors">Kalenderfarben verwenden</label>
+          </div>
+
+          <div class="checkbox-option">
+            <input type="checkbox" name="showLegend" id="showLegend" checked>
+            <label for="showLegend">Legende anzeigen</label>
+          </div>
+        </div>
+
+        <!-- Export buttons -->
+        <div class="button-group">
+          <button type="submit" name="format" value="pdf" class="btn btn-primary" id="btn-pdf">
+            PDF generieren
+          </button>
+          <button type="submit" name="format" value="xlsx" class="btn btn-secondary" id="btn-xlsx">
+            Excel exportieren
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  // Register event handlers
+  const form = document.getElementById('calendar-form') as HTMLFormElement;
+  form.addEventListener('submit', handleFormSubmit);
+}
+
+function renderCalendarCheckbox(cal: CTCalendar): string {
+  return `
+    <label class="checkbox-item">
+      <input type="checkbox" name="calendars" value="${cal.id}">
+      <span class="calendar-color-badge" style="background-color: ${cal.color}; color: ${getContrastColor(cal.color)}">
+        ${escapeHtml(cal.name)}
+      </span>
+    </label>
+  `;
+}
+
+function renderTagCheckbox(tag: CTTag): string {
+  return `
+    <label class="checkbox-item">
+      <input type="checkbox" name="tags" value="${tag.id}">
+      <span>${escapeHtml(tag.name)}</span>
+    </label>
+  `;
+}
+
+// ============================================
+// Form Handler
+// ============================================
+
+async function handleFormSubmit(event: SubmitEvent) {
+  event.preventDefault();
+
+  const form = event.target as HTMLFormElement;
+  const formData = new FormData(form);
+  const format = (event.submitter as HTMLButtonElement)?.value || 'pdf';
+
+  // Disable buttons during processing
+  const btnPdf = document.getElementById('btn-pdf') as HTMLButtonElement;
+  const btnXlsx = document.getElementById('btn-xlsx') as HTMLButtonElement;
+  btnPdf.disabled = true;
+  btnXlsx.disabled = true;
+  btnPdf.textContent = format === 'pdf' ? 'Generiere...' : 'PDF generieren';
+  btnXlsx.textContent = format === 'xlsx' ? 'Generiere...' : 'Excel exportieren';
+
+  try {
+    // Selected calendars & tags
+    const selectedCalendarIds = formData.getAll('calendars').map(Number);
+    const selectedTagIds = formData.getAll('tags').map(Number);
+
+    if (selectedCalendarIds.length === 0) {
+      alert('Bitte mindestens einen Kalender auswählen.');
+      return;
+    }
+
+    // Calculate time range
+    const timeRange = formData.get('timeRange') as TimeRange;
+    const { startDate, endDate, months } = calculateDateRange(timeRange);
+
+    // Load appointments
+    console.log(`Lade Termine von ${startDate.toISOString()} bis ${endDate.toISOString()}...`);
+    let appointments = await fetchAppointments(selectedCalendarIds, startDate, endDate);
+
+    // Apply filters
+    const visibility = formData.get('visibility') as VisibilityFilter;
+    appointments = filterAppointmentsByVisibility(appointments, visibility);
+    appointments = filterAppointmentsByTags(appointments, selectedTagIds);
+    appointments = sortAppointments(appointments);
+
+    console.log(`${appointments.length} Termine geladen.`);
+
+    // Collect configuration
+    const config = {
+      calendarIds: selectedCalendarIds,
+      tagIds: selectedTagIds,
+      timeRange,
+      months,
+      pageSize: formData.get('pageSize') as string,
+      orientation: formData.get('orientation') as string,
+      visibility,
+      showEndTime: formData.has('showEndTime'),
+      useColors: formData.has('useColors'),
+      showLegend: formData.has('showLegend'),
+    };
+
+    // Selected calendars for colors/legend
+    const selectedCalendars = calendars.filter((c) => selectedCalendarIds.includes(c.id));
+
+    if (format === 'xlsx') {
+      await generateExcel(appointments, selectedCalendars, config);
+    } else {
+      await generatePdf(appointments, selectedCalendars, config);
+    }
+  } catch (error) {
+    console.error('Fehler bei der Generierung:', error);
+    alert(`Fehler: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`);
+  } finally {
+    // Re-enable buttons
+    btnPdf.disabled = false;
+    btnXlsx.disabled = false;
+    btnPdf.textContent = 'PDF generieren';
+    btnXlsx.textContent = 'Excel exportieren';
+  }
+}
+
+// ============================================
+// PDF/Excel Generation
+// ============================================
+
+async function generatePdf(
+  appointments: CTAppointment[],
+  selectedCalendars: CTCalendar[],
+  config: Record<string, unknown>
+): Promise<void> {
+  const months = config.months as MonthYear[];
+  const useColors = config.useColors as boolean;
+  const showLegend = config.showLegend as boolean && selectedCalendars.length > 1;
+
+  console.log('PDF-Generierung:', {
+    appointments: appointments.length,
+    calendars: selectedCalendars.length,
+    months,
+  });
+
+  try {
+    // Create CalendarBuilder
+    const builder = new CalendarBuilder({
+      orientation: config.orientation as 'landscape' | 'portrait',
+      pageSize: config.pageSize as 'A2' | 'A3' | 'A4' | 'A5',
+      weekStarts: 1, // Montag
+      showEndTime: config.showEndTime as boolean,
+      useColors,
+      showLegend,
+      margins: { top: 10, right: 10, bottom: 10, left: 10 },
+    });
+
+    // Add categories (calendars) for colors and legend
+    if (useColors || showLegend) {
+      for (const cal of selectedCalendars) {
+        // Calculate contrast color for text
+        const textColor = getContrastColorForCalendar(cal.color);
+        builder.addCategory(cal.id.toString(), cal.name, textColor, cal.color);
+      }
+    }
+
+    // Calendar map for quick lookup
+    const calendarMap = new Map(selectedCalendars.map((c) => [c.id, c]));
+
+    // Create a page for each month
+    for (const monthYear of months) {
+      const { month, year } = monthYear;
+      const title = formatMonthYear(month, year);
+
+      // Add month
+      builder.addMonth(month, year, title);
+
+      // Filter appointments for this month
+      const monthAppointments = appointments.filter((apt) => {
+        const startDate = new Date(apt.startDate);
+        const endDate = new Date(apt.endDate);
+
+        // Appointment is in this month (start or end)
+        const startsInMonth = startDate.getMonth() === month - 1 && startDate.getFullYear() === year;
+        const endsInMonth = endDate.getMonth() === month - 1 && endDate.getFullYear() === year;
+
+        // Appointment spans this month
+        const firstOfMonth = new Date(year, month - 1, 1);
+        const lastOfMonth = new Date(year, month, 0, 23, 59, 59);
+        const spansMonth = startDate <= lastOfMonth && endDate >= firstOfMonth;
+
+        return startsInMonth || endsInMonth || spansMonth;
+      });
+
+      // Add appointments
+      for (const apt of monthAppointments) {
+        const calendar = calendarMap.get(apt.calendar.id);
+        const startDate = new Date(apt.startDate);
+        const endDate = new Date(apt.endDate);
+
+        // Combine title with note (as in PHP)
+        let title = apt.caption;
+        if (apt.note && apt.note.trim()) {
+          title = `${apt.caption} (${apt.note.trim()})`;
+        }
+
+        if (useColors && calendar) {
+          builder.addEntryWithCategory(startDate, endDate, title, calendar.id.toString());
+        } else {
+          builder.addEntry(startDate, endDate, title);
+        }
+      }
+    }
+
+    // Generate PDF
+    const blob = await builder.generate();
+
+    // Trigger download
+    const filename = generatePdfFilename(months);
+    downloadPdfBlob(blob, filename);
+
+    console.log(`PDF-Datei "${filename}" wurde generiert.`);
+  } catch (error) {
+    console.error('Fehler bei PDF-Generierung:', error);
+    throw new Error(`PDF-Generierung fehlgeschlagen: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`);
+  }
+}
+
+/**
+ * Calculates contrast color for calendar
+ */
+function getContrastColorForCalendar(hexColor: string): string {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 128 ? '#000000' : '#FFFFFF';
+}
+
+async function generateExcel(
+  appointments: CTAppointment[],
+  selectedCalendars: CTCalendar[],
+  config: Record<string, unknown>
+): Promise<void> {
+  const months = config.months as Array<{ month: number; year: number }>;
+
+  console.log('Excel-Export:', {
+    appointments: appointments.length,
+    calendars: selectedCalendars.length,
+    months,
+  });
+
+  try {
+    // Generate Excel file
+    const blob = await exportToExcel({
+      appointments,
+      calendars: selectedCalendars,
+      months,
+      showEndTime: config.showEndTime as boolean,
+      useColors: config.useColors as boolean,
+      showLegend: config.showLegend as boolean,
+    });
+
+    // Trigger download
+    const filename = generateFilename(months, 'xlsx');
+    downloadBlob(blob, filename);
+
+    console.log(`Excel-Datei "${filename}" wurde generiert.`);
+  } catch (error) {
+    console.error('Fehler beim Excel-Export:', error);
+    throw new Error(`Excel-Export fehlgeschlagen: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`);
+  }
+}
+
+// ============================================
+// Helper Functions
+// ============================================
+
+/**
+ * Calculates contrast color (black/white) for background
+ */
+function getContrastColor(hexColor: string): string {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 128 ? '#000000' : '#ffffff';
+}
+
+/**
+ * Escapes HTML special characters
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ============================================
+// Start App
+// ============================================
+
+initApp();

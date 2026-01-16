@@ -1,17 +1,23 @@
 {
-    "name": "extension-boilerplate",
+    "name": "churchtools-pdfcalendar-extension",
     "private": true,
-    "version": "0.0.1",
+    "version": "1.0.0",
     "type": "module",
+    "description": "ChurchTools Extension zum Generieren von PDF- und Excel-Kalendern",
     "scripts": {
         "dev": "vite",
         "build": "tsc && vite build",
         "preview": "vite preview",
         "deploy": "npm run build && node scripts/package.js"
     },
+    "dependencies": {
+        "pdfmake": "^0.2.18",
+        "exceljs": "^4.4.0"
+    },
     "devDependencies": {
         "@churchtools/churchtools-client": "^1.4.0",
         "@types/node": "^24.3.0",
+        "@types/pdfmake": "^0.2.9",
         "typescript": "^5.9.2",
         "vite": "^7.1.2"
     }
