@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Package
+        run: node scripts/package.js
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          # Strip leading 'v' from tag to match CHANGELOG headings (e.g. 0.9.0)
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Extract the section between this version's heading and the next heading
+          NOTES=$(awk "/^## ${VERSION} /{found=1; next} /^## /{if(found) exit} found{print}" CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            echo "use_generate=true" >> "$GITHUB_OUTPUT"
+          else
+            # Write multi-line notes to output via delimiter
+            {
+              echo "body<<RELEASE_EOF"
+              echo "$NOTES"
+              echo "RELEASE_EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "use_generate=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release (with CHANGELOG notes)
+        if: steps.notes.outputs.use_generate == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" releases/*.zip --title "$GITHUB_REF_NAME" --notes "${{ steps.notes.outputs.body }}"
+
+      - name: Create GitHub Release (auto-generated notes)
+        if: steps.notes.outputs.use_generate == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" releases/*.zip --title "$GITHUB_REF_NAME" --generate-notes
