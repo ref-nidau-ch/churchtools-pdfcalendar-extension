@@ -114,99 +114,100 @@ function renderApp(app: HTMLDivElement, user: Person) {
 
       <form id="calendar-form" class="calendar-form">
         <div class="form-columns">
-          <!-- Left column: Calendars -->
+          <!-- Column 1: Calendars -->
           <div class="form-column">
             <div class="form-group">
               <label>Kalender:</label>
               <div class="checkbox-list" id="calendar-list">
-                ${publicCalendars.length > 0 ? '<div class="list-section-header">Öffentliche Kalender</div>' : ''}
-                ${publicCalendars.map((cal) => renderCalendarCheckbox(cal)).join('')}
-                ${privateCalendars.length > 0 ? '<div class="list-section-header">Gruppenkalender</div>' : ''}
-                ${privateCalendars.map((cal) => renderCalendarCheckbox(cal)).join('')}
+                ${publicCalendars.length > 0 ? `
+                <label class="checkbox-item select-all-item">
+                  <input type="checkbox" id="select-all-public">
+                  <span class="select-all-label">Öffentliche Kalender</span>
+                </label>` : ''}
+                ${publicCalendars.map((cal) => renderCalendarCheckbox(cal, 'cal-public')).join('')}
+                ${privateCalendars.length > 0 ? `
+                <label class="checkbox-item select-all-item">
+                  <input type="checkbox" id="select-all-private">
+                  <span class="select-all-label">Gruppenkalender</span>
+                </label>` : ''}
+                ${privateCalendars.map((cal) => renderCalendarCheckbox(cal, 'cal-private')).join('')}
               </div>
             </div>
           </div>
 
-          <!-- Right column: Tags -->
+          <!-- Column 2: Tags -->
           <div class="form-column">
             <div class="form-group">
               <label>Tags: <span class="hint">(keine Auswahl = alle Termine)</span></label>
-              <div class="checkbox-list" id="tag-list">
+              <div class="checkbox-list checkbox-list--scrollable" id="tag-list">
                 ${tags.length > 0 ? tags.map((tag) => renderTagCheckbox(tag)).join('') : '<div class="empty-hint">Keine Tags verfügbar</div>'}
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Time range -->
-        <div class="form-group">
-          <label for="timeRange">Zeitraum:</label>
-          <select name="timeRange" id="timeRange">
-            <option value="current">Aktueller Monat</option>
-            <option value="previous">Vorheriger Monat</option>
-            <option value="next" selected>Nächster Monat</option>
-            <option value="year">Ganzes Jahr (12 Seiten)</option>
-          </select>
-        </div>
+          <!-- Column 3: Options & Export -->
+          <div class="form-column">
+            <div class="form-group">
+              <label for="timeRange">Zeitraum:</label>
+              <select name="timeRange" id="timeRange">
+                <option value="current">Aktueller Monat</option>
+                <option value="previous">Vorheriger Monat</option>
+                <option value="next" selected>Nächster Monat</option>
+                <option value="year">Ganzes Jahr (12 Seiten)</option>
+              </select>
+            </div>
 
-        <!-- Format options -->
-        <div class="form-row">
-          <div class="form-group">
-            <label for="pageSize">Papierformat:</label>
-            <select name="pageSize" id="pageSize">
-              <option value="A5">A5</option>
-              <option value="A4" selected>A4</option>
-              <option value="A3">A3</option>
-              <option value="A2">A2</option>
-            </select>
+            <div class="form-group">
+              <label for="pageSize">Papierformat:</label>
+              <select name="pageSize" id="pageSize">
+                <option value="A5">A5</option>
+                <option value="A4" selected>A4</option>
+                <option value="A3">A3</option>
+                <option value="A2">A2</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="orientation">Ausrichtung:</label>
+              <select name="orientation" id="orientation">
+                <option value="landscape">Querformat</option>
+                <option value="portrait" selected>Hochformat</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="visibility">Sichtbarkeit:</label>
+              <select name="visibility" id="visibility">
+                <option value="public" selected>Nur öffentliche</option>
+                <option value="private">Nur private</option>
+                <option value="all">Alle</option>
+              </select>
+            </div>
+
+            <div class="checkbox-option">
+              <input type="checkbox" name="showEndTime" id="showEndTime">
+              <label for="showEndTime">Endzeit anzeigen</label>
+            </div>
+
+            <div class="checkbox-option">
+              <input type="checkbox" name="useColors" id="useColors" checked>
+              <label for="useColors">Kalenderfarben verwenden</label>
+            </div>
+
+            <div class="checkbox-option">
+              <input type="checkbox" name="showLegend" id="showLegend" checked>
+              <label for="showLegend">Legende anzeigen</label>
+            </div>
+
+            <div class="button-group">
+              <button type="submit" name="format" value="pdf" class="btn btn-primary" id="btn-pdf">
+                PDF generieren
+              </button>
+              <button type="submit" name="format" value="xlsx" class="btn btn-secondary" id="btn-xlsx">
+                Excel exportieren
+              </button>
+            </div>
           </div>
-
-          <div class="form-group">
-            <label for="orientation">Ausrichtung:</label>
-            <select name="orientation" id="orientation">
-              <option value="landscape">Querformat</option>
-              <option value="portrait" selected>Hochformat</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="visibility">Sichtbarkeit:</label>
-            <select name="visibility" id="visibility">
-              <option value="public" selected>Nur öffentliche</option>
-              <option value="private">Nur private</option>
-              <option value="all">Alle</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Options -->
-        <div class="section-header">Optionen</div>
-
-        <div class="options-row">
-          <div class="checkbox-option">
-            <input type="checkbox" name="showEndTime" id="showEndTime">
-            <label for="showEndTime">Endzeit anzeigen</label>
-          </div>
-
-          <div class="checkbox-option">
-            <input type="checkbox" name="useColors" id="useColors" checked>
-            <label for="useColors">Kalenderfarben verwenden</label>
-          </div>
-
-          <div class="checkbox-option">
-            <input type="checkbox" name="showLegend" id="showLegend" checked>
-            <label for="showLegend">Legende anzeigen</label>
-          </div>
-        </div>
-
-        <!-- Export buttons -->
-        <div class="button-group">
-          <button type="submit" name="format" value="pdf" class="btn btn-primary" id="btn-pdf">
-            PDF generieren
-          </button>
-          <button type="submit" name="format" value="xlsx" class="btn btn-secondary" id="btn-xlsx">
-            Excel exportieren
-          </button>
         </div>
       </form>
     </div>
@@ -215,12 +216,16 @@ function renderApp(app: HTMLDivElement, user: Person) {
   // Register event handlers
   const form = document.getElementById('calendar-form') as HTMLFormElement;
   form.addEventListener('submit', handleFormSubmit);
+
+  // Select-all for public calendars
+  setupSelectAll('select-all-public', 'cal-public');
+  setupSelectAll('select-all-private', 'cal-private');
 }
 
-function renderCalendarCheckbox(cal: CTCalendar): string {
+function renderCalendarCheckbox(cal: CTCalendar, groupClass: string): string {
   return `
     <label class="checkbox-item">
-      <input type="checkbox" name="calendars" value="${cal.id}">
+      <input type="checkbox" name="calendars" value="${cal.id}" class="${groupClass}">
       <span class="calendar-color-badge" style="background-color: ${cal.color}; color: ${getContrastColor(cal.color)}">
         ${escapeHtml(cal.name)}
       </span>
@@ -468,6 +473,30 @@ async function generateExcel(
 // ============================================
 // Helper Functions
 // ============================================
+
+/**
+ * Wires up a select-all checkbox to toggle all checkboxes with the given class
+ */
+function setupSelectAll(selectAllId: string, groupClass: string): void {
+  const selectAll = document.getElementById(selectAllId) as HTMLInputElement | null;
+  if (!selectAll) return;
+
+  const checkboxes = () => document.querySelectorAll<HTMLInputElement>(`input.${groupClass}`);
+
+  selectAll.addEventListener('change', () => {
+    checkboxes().forEach((cb) => { cb.checked = selectAll.checked; });
+  });
+
+  // Update select-all state when individual checkboxes change
+  document.getElementById('calendar-list')?.addEventListener('change', (e) => {
+    const target = e.target as HTMLInputElement;
+    if (target.classList.contains(groupClass)) {
+      const all = checkboxes();
+      selectAll.checked = Array.from(all).every((cb) => cb.checked);
+      selectAll.indeterminate = !selectAll.checked && Array.from(all).some((cb) => cb.checked);
+    }
+  });
+}
 
 /**
  * Calculates contrast color (black/white) for background
