@@ -44,37 +44,41 @@ export async function fetchAppointments(
   }
   params.append('from', formatDateForApi(from));
   params.append('to', formatDateForApi(to));
+  params.append('include[]', 'tags');
 
   const queryString = params.toString();
 
-  // The API returns { base: AppointmentBase, calculated: { startDate, endDate } }
+  // The API returns { appointment: { base: AppointmentBase, calculated: { startDate, endDate } } }
   interface RawAppointment {
-    base: {
-      id: number;
-      caption?: string;
-      title?: string;
-      note?: string | null;
-      subtitle?: string | null;
-      startDate: string;
-      endDate: string;
-      allDay: boolean;
-      version: number;
-      link: string | null;
-      isInternal: boolean;
-      repeatId: number;
-      repeatFrequency?: number | null;
-      repeatUntil?: string | null;
-      repeatOption?: number | null;
-      address?: CTAppointment['address'];
-      information?: string | null;
-      description?: string | null;
-      image?: CTAppointment['image'];
-      calendar: CTAppointment['calendar'];
+    appointment: {
+      base: {
+        id: number;
+        caption?: string;
+        title?: string;
+        note?: string | null;
+        subtitle?: string | null;
+        startDate: string;
+        endDate: string;
+        allDay: boolean;
+        version: number;
+        link: string | null;
+        isInternal: boolean;
+        repeatId: number;
+        repeatFrequency?: number | null;
+        repeatUntil?: string | null;
+        repeatOption?: number | null;
+        address?: CTAppointment['address'];
+        information?: string | null;
+        description?: string | null;
+        image?: CTAppointment['image'];
+        calendar: CTAppointment['calendar'];
+      };
+      calculated: {
+        startDate: string;
+        endDate: string;
+      };
     };
-    calculated: {
-      startDate: string;
-      endDate: string;
-    };
+    tags?: CTTag[];
   }
 
   const response = await churchtoolsClient.get<CTApiResponse<RawAppointment[]>>(
@@ -83,26 +87,33 @@ export async function fetchAppointments(
 
   const rawList = response.data ?? response ?? [];
 
-  return (rawList as RawAppointment[]).map((item) => ({
-    id: item.base.id,
-    caption: item.base.caption ?? item.base.title ?? '',
-    note: item.base.note ?? item.base.subtitle ?? '',
-    startDate: item.calculated.startDate ?? item.base.startDate,
-    endDate: item.calculated.endDate ?? item.base.endDate,
-    allDay: item.base.allDay,
-    version: item.base.version,
-    link: item.base.link ?? '',
-    isInternal: item.base.isInternal,
-    repeatId: item.base.repeatId,
-    repeatFrequency: item.base.repeatFrequency != null ? String(item.base.repeatFrequency) : undefined,
-    repeatUntil: item.base.repeatUntil ?? undefined,
-    repeatOption: item.base.repeatOption ?? undefined,
-    address: item.base.address ?? null,
-    information: item.base.information ?? item.base.description ?? undefined,
-    image: item.base.image ?? null,
-    calendar: item.base.calendar,
-    tags: [],
-  }));
+  return (rawList as RawAppointment[]).map((item) => {
+    // Handle both nested { appointment: { base, calculated } } and flat { base, calculated } formats
+    const apt = item.appointment ?? item;
+    const base = (apt as RawAppointment['appointment']).base;
+    const calculated = (apt as RawAppointment['appointment']).calculated;
+
+    return {
+      id: base.id,
+      caption: base.caption ?? base.title ?? '',
+      note: base.note ?? base.subtitle ?? '',
+      startDate: calculated.startDate ?? base.startDate,
+      endDate: calculated.endDate ?? base.endDate,
+      allDay: base.allDay,
+      version: base.version,
+      link: base.link ?? '',
+      isInternal: base.isInternal,
+      repeatId: base.repeatId,
+      repeatFrequency: base.repeatFrequency != null ? String(base.repeatFrequency) : undefined,
+      repeatUntil: base.repeatUntil ?? undefined,
+      repeatOption: base.repeatOption ?? undefined,
+      address: base.address ?? null,
+      information: base.information ?? base.description ?? undefined,
+      image: base.image ?? null,
+      calendar: base.calendar,
+      tags: item.tags ?? [],
+    };
+  });
 }
 
 /**
@@ -164,22 +175,15 @@ export function sortAppointments(appointments: CTAppointment[]): CTAppointment[]
 // ============================================
 
 /**
- * Fetches all appointment tags
+ * Fetches all appointment tags via /tags/appointment
  */
 export async function fetchAppointmentTags(): Promise<CTTag[]> {
   try {
-    // ChurchTools API endpoint for appointment tags
-    const response = await churchtoolsClient.get<CTApiResponse<CTTag[]>>('/calendars/appointments/tags');
+    const response = await churchtoolsClient.get<CTApiResponse<CTTag[]>>('/tags/appointment');
     return response.data ?? response ?? [];
   } catch (error) {
-    // Fallback: Try generic tags endpoint
-    try {
-      const response = await churchtoolsClient.get<CTApiResponse<CTTag[]>>('/tags?type=appointment');
-      return response.data ?? response ?? [];
-    } catch {
-      console.warn('Tags API not available:', error);
-      return [];
-    }
+    console.warn('Tags API not available:', error);
+    return [];
   }
 }
 

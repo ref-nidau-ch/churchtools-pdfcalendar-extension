@@ -89,17 +89,14 @@ export function calculateDateRange(timeRange: TimeRange): {
     }
 
     case 'year': {
-      // 12 months starting from current month
+      // January to December of the current year
       const months: MonthYear[] = [];
-      for (let i = 0; i < 12; i++) {
-        const m = ((currentMonth - 1 + i) % 12) + 1;
-        const y = currentYear + Math.floor((currentMonth - 1 + i) / 12);
-        months.push({ month: m, year: y });
+      for (let m = 1; m <= 12; m++) {
+        months.push({ month: m, year: currentYear });
       }
-      const lastMonth = months[11];
       return {
-        startDate: getFirstDayOfMonth(currentYear, currentMonth),
-        endDate: getLastDayOfMonth(lastMonth.year, lastMonth.month),
+        startDate: getFirstDayOfMonth(currentYear, 1),
+        endDate: getLastDayOfMonth(currentYear, 12),
         months,
       };
     }

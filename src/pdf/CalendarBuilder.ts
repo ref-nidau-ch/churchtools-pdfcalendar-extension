@@ -354,7 +354,7 @@ export class CalendarBuilder {
 
     // Legend
     if (this.config.showLegend && this.categories.size > 0) {
-      content.push(this.buildLegend());
+      content.push(this.buildLegend(colWidthPt));
     }
 
     // Timestamp
@@ -428,28 +428,68 @@ export class CalendarBuilder {
   }
 
   /**
-   * Builds the legend
+   * Builds the legend as rows of up to 7 cells, expanding to fill the full width.
+   * Text is horizontally and vertically centered within each cell.
    */
-  private buildLegend(): Content {
-    const legendItems: Content[] = [];
+  private buildLegend(colWidthPt: number): Content {
+    const categories = Array.from(this.categories.values());
+    const availableWidthPt = colWidthPt * 7;
+    const tables: Content[] = [];
+    const lineHeight = LEGEND_FONT_SIZE * 1.4;
+    const avgCharWidth = LEGEND_FONT_SIZE * 0.5;
+    const cellPadH = 4; // horizontal content margin (2 left + 2 right)
+    const cellPadV = 2; // base vertical padding
 
-    this.categories.forEach((category) => {
-      const bgColor = rgbToHex(category.bgColor);
-      const textColor = rgbToHex(category.textColor);
+    for (let i = 0; i < categories.length; i += 7) {
+      const chunk = categories.slice(i, i + 7);
+      const cellWidth = availableWidthPt / chunk.length;
+      const textWidth = cellWidth - cellPadH;
 
-      legendItems.push({
-        text: ` ${category.name} `,
-        fontSize: LEGEND_FONT_SIZE,
-        color: textColor,
-        background: bgColor,
-        margin: [2, 0, 4, 0],
+      // Estimate line count per cell
+      const lineCounts = chunk.map((cat) => {
+        const charsPerLine = Math.max(1, Math.floor(textWidth / avgCharWidth));
+        return Math.ceil(cat.name.length / charsPerLine);
       });
-    });
+      const maxLines = Math.max(...lineCounts);
+      const maxContentHeight = maxLines * lineHeight;
 
-    return {
-      columns: legendItems,
-      margin: [0, 8, 0, 0],
-    };
+      const row: TableCell[] = chunk.map((cat, idx) => {
+        const cellContentHeight = lineCounts[idx] * lineHeight;
+        const extraTop = (maxContentHeight - cellContentHeight) / 2;
+        const extraBottom = maxContentHeight - cellContentHeight - extraTop;
+
+        return {
+          stack: [{
+            text: cat.name,
+            fontSize: LEGEND_FONT_SIZE,
+            color: rgbToHex(cat.textColor),
+            alignment: 'center' as const,
+            margin: [2, cellPadV + extraTop, 2, cellPadV + extraBottom],
+          }],
+          fillColor: rgbToHex(cat.bgColor),
+        };
+      });
+
+      tables.push({
+        table: {
+          widths: Array(chunk.length).fill(cellWidth),
+          body: [row],
+        },
+        layout: {
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: () => GRID_BORDER_COLOR,
+          vLineColor: () => GRID_BORDER_COLOR,
+          paddingLeft: () => 0,
+          paddingRight: () => 0,
+          paddingTop: () => 0,
+          paddingBottom: () => 0,
+        },
+        margin: [0, i === 0 ? 4 : 0, 0, 0],
+      });
+    }
+
+    return { stack: tables };
   }
 
   /**
