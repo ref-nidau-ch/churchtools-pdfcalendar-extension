@@ -171,6 +171,19 @@ export interface MonthYear {
   year: number;
 }
 
+// Persisted user settings for localStorage
+export interface UserSettings {
+  timeRange: TimeRange;
+  pageSize: string;
+  orientation: string;
+  visibility: VisibilityFilter;
+  showEndTime: boolean;
+  useColors: boolean;
+  showLegend: boolean;
+  calendarIds: number[];
+  tagIds: number[];
+}
+
 // Form data for calendar generation
 export interface CalendarFormData {
   calendarIds: number[];

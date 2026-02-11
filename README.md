@@ -25,6 +25,10 @@ A ChurchTools extension that generates printable PDF calendars and Excel exports
   - Visibility filter (public/private/all)
   - Time range selection (current/previous/next month, full year)
 
+- **Settings Persistence**
+  - Form selections (calendars, tags, options) are saved to localStorage
+  - Settings are automatically restored on next visit
+
 ## Technology Stack
 
 - **TypeScript** - Type-safe development

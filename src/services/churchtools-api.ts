@@ -117,7 +117,10 @@ export async function fetchAppointments(
 }
 
 /**
- * Filters appointments by visibility (public/private)
+ * Filters appointments by their visibility flag (isInternal).
+ * "public" = only appointments visible to everyone (isInternal === false)
+ * "private" = only appointments for logged-in users (isInternal === true)
+ * "all" = no filter
  */
 export function filterAppointmentsByVisibility(
   appointments: CTAppointment[],
@@ -129,10 +132,10 @@ export function filterAppointmentsByVisibility(
 
   return appointments.filter((apt) => {
     if (visibility === 'public') {
-      return apt.calendar.isPublic;
+      return !apt.isInternal;
     }
     if (visibility === 'private') {
-      return apt.calendar.isPrivate || !apt.calendar.isPublic;
+      return apt.isInternal;
     }
     return true;
   });

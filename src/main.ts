@@ -16,7 +16,7 @@ import {
 import { calculateDateRange, formatMonthYear } from './utils/date-utils';
 import { exportToExcel, downloadBlob, generateFilename } from './xlsx/ExcelExporter';
 import { CalendarBuilder, generatePdfFilename, downloadBlob as downloadPdfBlob } from './pdf/CalendarBuilder';
-import type { CTCalendar, CTTag, CTAppointment, VisibilityFilter, TimeRange, MonthYear } from './types/calendar.types';
+import type { CTCalendar, CTTag, CTAppointment, VisibilityFilter, TimeRange, MonthYear, UserSettings } from './types/calendar.types';
 import './styles/calendar.css';
 
 // Load reset CSS and activate request logging only in development mode
@@ -47,9 +47,91 @@ if (import.meta.env.MODE === 'development' && username && password) {
 const KEY = import.meta.env.VITE_KEY;
 export { KEY };
 
+// localStorage key for persisted settings
+const SETTINGS_KEY = 'ct-pdfcalendar-settings';
+
 // Global state variables
 let calendars: CTCalendar[] = [];
 let tags: CTTag[] = [];
+let currentUserName = '';
+
+// ============================================
+// Settings Persistence
+// ============================================
+
+function saveSettings(settings: UserSettings): void {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // Silently ignore storage errors (quota exceeded, etc.)
+  }
+}
+
+function loadSettings(): UserSettings | null {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as UserSettings;
+  } catch {
+    return null;
+  }
+}
+
+function restoreSettings(): void {
+  const settings = loadSettings();
+  if (!settings) return;
+
+  // Restore select elements
+  const selects: Array<[string, string]> = [
+    ['timeRange', settings.timeRange],
+    ['pageSize', settings.pageSize],
+    ['orientation', settings.orientation],
+    ['visibility', settings.visibility],
+  ];
+  for (const [id, value] of selects) {
+    const el = document.getElementById(id) as HTMLSelectElement | null;
+    if (el) el.value = value;
+  }
+
+  // Restore static checkboxes
+  const checkboxes: Array<[string, boolean]> = [
+    ['showEndTime', settings.showEndTime],
+    ['useColors', settings.useColors],
+    ['showLegend', settings.showLegend],
+  ];
+  for (const [id, checked] of checkboxes) {
+    const el = document.getElementById(id) as HTMLInputElement | null;
+    if (el) el.checked = checked;
+  }
+
+  // Restore calendar checkboxes
+  if (settings.calendarIds?.length) {
+    const savedIds = new Set(settings.calendarIds.map(String));
+    document.querySelectorAll<HTMLInputElement>('input[name="calendars"]').forEach((cb) => {
+      cb.checked = savedIds.has(cb.value);
+    });
+  }
+
+  // Restore tag checkboxes
+  if (settings.tagIds?.length) {
+    const savedIds = new Set(settings.tagIds.map(String));
+    document.querySelectorAll<HTMLInputElement>('input[name="tags"]').forEach((cb) => {
+      cb.checked = savedIds.has(cb.value);
+    });
+  }
+
+  // Update select-all checkbox states
+  updateSelectAllState('select-all-public', 'cal-public');
+  updateSelectAllState('select-all-private', 'cal-private');
+}
+
+function updateSelectAllState(selectAllId: string, groupClass: string): void {
+  const selectAll = document.getElementById(selectAllId) as HTMLInputElement | null;
+  if (!selectAll) return;
+  const all = document.querySelectorAll<HTMLInputElement>(`input.${groupClass}`);
+  selectAll.checked = all.length > 0 && Array.from(all).every((cb) => cb.checked);
+  selectAll.indeterminate = !selectAll.checked && Array.from(all).some((cb) => cb.checked);
+}
 
 // ============================================
 // App Initialization
@@ -79,6 +161,7 @@ async function initApp() {
 
     calendars = loadedCalendars;
     tags = loadedTags;
+    currentUserName = `${user.firstName} ${user.lastName}`.trim();
 
     // Render UI
     renderApp(app, user);
@@ -122,7 +205,7 @@ function renderApp(app: HTMLDivElement, user: Person) {
                 ${publicCalendars.length > 0 ? `
                 <label class="checkbox-item select-all-item">
                   <input type="checkbox" id="select-all-public">
-                  <span class="select-all-label">Öffentliche Kalender</span>
+                  <span class="select-all-label">Gemeindekalender</span>
                 </label>` : ''}
                 ${publicCalendars.map((cal) => renderCalendarCheckbox(cal, 'cal-public')).join('')}
                 ${privateCalendars.length > 0 ? `
@@ -150,8 +233,8 @@ function renderApp(app: HTMLDivElement, user: Person) {
             <div class="form-group">
               <label for="timeRange">Zeitraum:</label>
               <select name="timeRange" id="timeRange">
-                <option value="current">Aktueller Monat</option>
                 <option value="previous">Vorheriger Monat</option>
+                <option value="current">Aktueller Monat</option>
                 <option value="next" selected>Nächster Monat</option>
                 <option value="year">Ganzes Jahr (12 Seiten)</option>
               </select>
@@ -178,9 +261,9 @@ function renderApp(app: HTMLDivElement, user: Person) {
             <div class="form-group">
               <label for="visibility">Sichtbarkeit:</label>
               <select name="visibility" id="visibility">
-                <option value="public" selected>Nur öffentliche</option>
-                <option value="private">Nur private</option>
-                <option value="all">Alle</option>
+                <option value="all">Alle Termine</option>
+                <option value="public" selected>Nur öffentlich sichtbare</option>
+                <option value="private">Nur intern sichtbare</option>
               </select>
             </div>
 
@@ -220,6 +303,9 @@ function renderApp(app: HTMLDivElement, user: Person) {
   // Select-all for public calendars
   setupSelectAll('select-all-public', 'cal-public');
   setupSelectAll('select-all-private', 'cal-private');
+
+  // Restore persisted settings
+  restoreSettings();
 }
 
 function renderCalendarCheckbox(cal: CTCalendar, groupClass: string): string {
@@ -301,6 +387,19 @@ async function handleFormSubmit(event: SubmitEvent) {
       showLegend: formData.has('showLegend'),
     };
 
+    // Persist current form settings
+    saveSettings({
+      timeRange,
+      pageSize: config.pageSize as string,
+      orientation: config.orientation as string,
+      visibility,
+      showEndTime: config.showEndTime as boolean,
+      useColors: config.useColors as boolean,
+      showLegend: config.showLegend as boolean,
+      calendarIds: selectedCalendarIds,
+      tagIds: selectedTagIds,
+    });
+
     // Selected calendars for colors/legend
     const selectedCalendars = calendars.filter((c) => selectedCalendarIds.includes(c.id));
 
@@ -350,6 +449,7 @@ async function generatePdf(
       useColors,
       showLegend,
       margins: { top: 10, right: 10, bottom: 10, left: 10 },
+      author: currentUserName,
     });
 
     // Add categories (calendars) for colors and legend

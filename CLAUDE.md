@@ -53,6 +53,7 @@ The extension handles authentication differently in dev vs production:
 2. **Form Submission** (main.ts:handleFormSubmit)
    - Fetches appointments for selected calendars and date range
    - Applies filters: visibility (public/private/all) and tags
+   - Saves current form settings to localStorage via `saveSettings()`
    - Generates PDF or Excel based on button clicked
 
 3. **PDF Generation** (pdf/CalendarBuilder.ts)
@@ -66,6 +67,15 @@ The extension handles authentication differently in dev vs production:
    - Uses ExcelJS to create spreadsheet with appointment details
    - Hyperlinks for URLs and images
    - Auto-filter and alternating row colors by month
+
+### Settings Persistence
+
+User form selections are persisted to `localStorage` under key `ct-pdfcalendar-settings` (see `UserSettings` interface in `types/calendar.types.ts`). This includes calendar/tag selections, time range, page size, orientation, visibility, and checkbox options.
+
+- **Save**: `saveSettings()` is called after each form submission in `handleFormSubmit()`
+- **Load**: `restoreSettings()` is called at the end of `renderApp()` after the DOM is built
+- Restoring also updates "select all" checkbox states (checked/indeterminate) via `updateSelectAllState()`
+- Storage errors (quota exceeded, corrupt data) are silently ignored
 
 ### Key-Value Store System
 

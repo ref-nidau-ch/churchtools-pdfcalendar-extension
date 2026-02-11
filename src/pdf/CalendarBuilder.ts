@@ -37,6 +37,7 @@ export interface CalendarBuilderConfig {
   showLegend?: boolean;
   dayNames?: string[];
   monthNames?: string[];
+  author?: string;
 }
 
 export interface Category {
@@ -273,6 +274,31 @@ export class CalendarBuilder {
     const weekdayOfFirst = getFirstDayWeekday(year, month, this.config.weekStarts);
     const numRows = getWeeksInMonth(year, month, this.config.weekStarts);
 
+    // Calculate page dimensions
+    const pageSizeMm = PAGE_SIZES[this.config.pageSize] || PAGE_SIZES.A4;
+    const pageWidthMm = this.config.orientation === 'landscape' ? pageSizeMm.height : pageSizeMm.width;
+    const pageHeightMm = this.config.orientation === 'landscape' ? pageSizeMm.width : pageSizeMm.height;
+    const margins = this.config.margins!;
+    const availableWidthPt = mmToPt(pageWidthMm - margins.left - margins.right);
+    const colWidthPt = availableWidthPt / 7;
+
+    // Calculate available height for the calendar grid
+    const availableHeightPt = mmToPt(pageHeightMm - margins.top - margins.bottom);
+    const titleHeightPt = TITLE_FONT_SIZE * 1.4 + 8;
+    const headerRowHeightPt = HEADER_FONT_SIZE * 1.4 + 8;
+    const showLegend = this.config.showLegend && this.categories.size > 0;
+    const numLegendRows = showLegend ? Math.ceil(this.categories.size / 7) : 0;
+    const legendHeightPt = numLegendRows > 0 ? numLegendRows * (LEGEND_FONT_SIZE * 1.4 + 12) : 0;
+    const footerHeightPt = 7 * 1.4 + 4;
+    const gridBordersPt = (numRows + 2) * 0.5;
+    const safetyMarginPt = 5;
+    const gridHeightPt = availableHeightPt - titleHeightPt - headerRowHeightPt - legendHeightPt - footerHeightPt - gridBordersPt - safetyMarginPt;
+
+    // Find optimal font size and row heights
+    const { entryFontSize, rowHeights } = this.calculateOptimalLayout(
+      entriesByDay, numRows, weekdayOfFirst, daysInMonth, colWidthPt, gridHeightPt
+    );
+
     const content: Content[] = [];
 
     // Title
@@ -303,21 +329,18 @@ export class CalendarBuilder {
       const tableRow: TableCell[] = [];
 
       for (let col = 0; col < 7; col++) {
-        // Empty cells before the 1st day
         if (row === 0 && col < weekdayOfFirst) {
           tableRow.push({ text: '', fillColor: '#F5F5F5', margin: [2, 2, 2, 2] });
           continue;
         }
 
-        // Empty cells after the last day
         if (currentDay > daysInMonth) {
           tableRow.push({ text: '', fillColor: '#F5F5F5', margin: [2, 2, 2, 2] });
           continue;
         }
 
-        // Cell for this day
         const dayEntries = entriesByDay.get(currentDay) || [];
-        const cellContent = this.buildDayCellContent(currentDay, dayEntries);
+        const cellContent = this.buildDayCellContent(currentDay, dayEntries, entryFontSize, rowHeights[row]);
         tableRow.push(cellContent);
 
         currentDay++;
@@ -326,18 +349,13 @@ export class CalendarBuilder {
       tableBody.push(tableRow);
     }
 
-    // Calculate fixed column widths based on page size
-    const pageSizeMm = PAGE_SIZES[this.config.pageSize] || PAGE_SIZES.A4;
-    const pageWidthMm = this.config.orientation === 'landscape' ? pageSizeMm.height : pageSizeMm.width;
-    const margins = this.config.margins!;
-    const availableWidthPt = mmToPt(pageWidthMm - margins.left - margins.right);
-    const colWidthPt = availableWidthPt / 7;
-
-    // Add table
+    // Add table with calculated row heights
+    const finalRowHeights = rowHeights;
     content.push({
       table: {
         headerRows: 1,
         widths: Array(7).fill(colWidthPt),
+        heights: (row: number) => row === 0 ? headerRowHeightPt : finalRowHeights[row - 1],
         body: tableBody,
       },
       layout: {
@@ -353,7 +371,7 @@ export class CalendarBuilder {
     });
 
     // Legend
-    if (this.config.showLegend && this.categories.size > 0) {
+    if (showLegend) {
       content.push(this.buildLegend(colWidthPt));
     }
 
@@ -365,40 +383,196 @@ export class CalendarBuilder {
       margin: [0, 4, 0, 0],
     });
 
-    return content;
+    // Wrap everything in an unbreakable stack so pdfmake never splits
+    // the calendar grid across pages.
+    return [{ stack: content, unbreakable: true }];
   }
 
   /**
-   * Builds the content of a day cell
+   * Calculates optimal entry font size and per-row heights to fill available space.
+   * Reduces font size if content overflows, then distributes remaining space.
+   * Content-heavy rows get their needed height; remaining space is shared equally.
    */
-  private buildDayCellContent(day: number, entries: CalendarEntry[]): TableCell {
-    const stack: Content[] = [];
+  private calculateOptimalLayout(
+    entriesByDay: Map<number, CalendarEntry[]>,
+    numRows: number,
+    weekdayOfFirst: number,
+    daysInMonth: number,
+    colWidthPt: number,
+    gridHeightPt: number
+  ): { entryFontSize: number; rowHeights: number[] } {
+    const MIN_FONT_SIZE = 5;
+    let entryFontSize = ENTRY_FONT_SIZE;
 
-    // Entries
-    for (const entry of entries) {
-      const entryContent = this.buildEntryContent(entry);
-      stack.push(entryContent);
+    while (entryFontSize >= MIN_FONT_SIZE) {
+      const contentHeights = this.estimateRowContentHeights(
+        entriesByDay, numRows, weekdayOfFirst, daysInMonth, colWidthPt, entryFontSize
+      );
+      const totalContent = contentHeights.reduce((sum, h) => sum + h, 0);
+
+      if (totalContent <= gridHeightPt) {
+        const rowHeights = this.distributeRowHeights(contentHeights, gridHeightPt);
+        return { entryFontSize, rowHeights };
+      }
+
+      // Content overflows — try smaller font
+      entryFontSize -= 0.5;
     }
 
-    // Day number (bottom right)
+    // Even at minimum font size, distribute as well as possible
+    const contentHeights = this.estimateRowContentHeights(
+      entriesByDay, numRows, weekdayOfFirst, daysInMonth, colWidthPt, MIN_FONT_SIZE
+    );
+    return { entryFontSize: MIN_FONT_SIZE, rowHeights: this.distributeRowHeights(contentHeights, gridHeightPt) };
+  }
+
+  /**
+   * Distributes available height across rows.
+   * Rows whose content exceeds an equal share get their full content height.
+   * Remaining space is distributed equally among the other rows.
+   */
+  private distributeRowHeights(contentHeights: number[], totalAvailable: number): number[] {
+    const numRows = contentHeights.length;
+    const rowHeights = new Array<number>(numRows).fill(0);
+    const isFixed = new Array<boolean>(numRows).fill(false);
+
+    let remaining = totalAvailable;
+    let flexCount = numRows;
+
+    // Iteratively assign heights to rows that exceed the equal share
+    for (let iteration = 0; iteration < numRows; iteration++) {
+      const equalShare = remaining / flexCount;
+      let changed = false;
+
+      for (let i = 0; i < numRows; i++) {
+        if (isFixed[i]) continue;
+        if (contentHeights[i] > equalShare) {
+          rowHeights[i] = contentHeights[i];
+          isFixed[i] = true;
+          remaining -= contentHeights[i];
+          flexCount--;
+          changed = true;
+        }
+      }
+
+      if (!changed) break;
+    }
+
+    // Distribute remaining space equally among flexible rows
+    const equalShare = flexCount > 0 ? remaining / flexCount : 0;
+    for (let i = 0; i < numRows; i++) {
+      if (!isFixed[i]) {
+        rowHeights[i] = equalShare;
+      }
+    }
+
+    return rowHeights;
+  }
+
+  /**
+   * Estimates the minimum content height for each calendar row.
+   * The height of a row is determined by its tallest cell.
+   */
+  private estimateRowContentHeights(
+    entriesByDay: Map<number, CalendarEntry[]>,
+    numRows: number,
+    weekdayOfFirst: number,
+    daysInMonth: number,
+    colWidthPt: number,
+    entryFontSize: number
+  ): number[] {
+    const lineHeight = entryFontSize * 1.4;
+    const entryMarginV = 2; // top + bottom margin per entry
+    const cellMarginV = 4; // top + bottom cell margin
+    // Conservative char width estimate — overestimate line count to avoid overflow
+    const avgCharWidth = entryFontSize * 0.55;
+    const textWidth = colWidthPt - 4; // minus horizontal cell margins
+    // Day number is placed first in the cell stack and takes flow height,
+    // so include it in the estimation.
+    const dayNumberHeight = DAY_NUMBER_FONT_SIZE * 1.2;
+    const minRowHeight = dayNumberHeight + cellMarginV;
+
+    const rowHeights: number[] = [];
+    let currentDay = 1;
+
+    for (let row = 0; row < numRows; row++) {
+      let maxCellHeight = minRowHeight;
+
+      for (let col = 0; col < 7; col++) {
+        if (row === 0 && col < weekdayOfFirst) { continue; }
+        if (currentDay > daysInMonth) { continue; }
+
+        const dayEntries = entriesByDay.get(currentDay) || [];
+        // Start with dayNumberHeight (first in the stack) + cell margins
+        let cellHeight = cellMarginV + dayNumberHeight;
+
+        for (const entry of dayEntries) {
+          let timeStr = '';
+          if (!entry.hideStartTime && !entry.isAllDay()) {
+            timeStr = entry.getFormattedStartTime();
+          }
+          const text = timeStr + entry.message;
+          const charsPerLine = Math.max(1, Math.floor(textWidth / avgCharWidth));
+          const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
+          cellHeight += lines * lineHeight + entryMarginV;
+        }
+
+        maxCellHeight = Math.max(maxCellHeight, cellHeight);
+        currentDay++;
+      }
+
+      rowHeights.push(maxCellHeight);
+    }
+
+    return rowHeights;
+  }
+
+  /**
+   * Builds the content of a day cell.
+   * The day number is placed FIRST with relativePosition to the bottom-right.
+   * Its yShift is based on the known rowHeight (no entry estimation needed).
+   * Entries follow and flow from the top, overlapping the day number area
+   * when the cell is full.
+   */
+  private buildDayCellContent(
+    day: number,
+    entries: CalendarEntry[],
+    entryFontSize: number,
+    rowHeight: number,
+  ): TableCell {
+    const cellPad = 2;
+    const dayNumHeight = DAY_NUMBER_FONT_SIZE * 1.2;
+    const contentAreaHeight = rowHeight - 2 * cellPad;
+
+    const stack: Content[] = [];
+
+    // Day number FIRST: its natural position is at y=0 (top of content area).
+    // relativePosition shifts it visually to the bottom-right.
+    // yShift = contentAreaHeight - dayNumHeight (always correct, no estimation).
+    const yShift = Math.max(0, contentAreaHeight - dayNumHeight);
     stack.push({
       text: day.toString(),
       style: 'dayNumber',
       alignment: 'right',
-      margin: [0, 2, 0, 0],
+      relativePosition: { x: 0, y: yShift },
     });
+
+    // Entries flow from the top (after day number's flow height)
+    for (const entry of entries) {
+      stack.push(this.buildEntryContent(entry, entryFontSize));
+    }
 
     return {
       stack,
       fillColor: '#FFFFFF',
-      margin: [2, 2, 2, 2],
+      margin: [cellPad, cellPad, cellPad, cellPad],
     };
   }
 
   /**
    * Builds the content of an entry
    */
-  private buildEntryContent(entry: CalendarEntry): Content {
+  private buildEntryContent(entry: CalendarEntry, entryFontSize: number): Content {
     // Format time
     let timeStr = '';
     if (!entry.hideStartTime && !entry.isAllDay()) {
@@ -418,11 +592,10 @@ export class CalendarBuilder {
 
     return {
       text,
-      fontSize: ENTRY_FONT_SIZE,
+      fontSize: entryFontSize,
       color: textColor,
       fillColor: bgColor,
       margin: [0, 1, 0, 1],
-      // Simulate padding through background
       background: bgColor,
     };
   }
@@ -502,8 +675,24 @@ export class CalendarBuilder {
 
     const margins = this.config.margins!;
 
+    // Build PDF title from page titles
+    const pdfTitle = this.pages.length === 1
+      ? this.pages[0].title
+      : `${this.pages[0].title} – ${this.pages[this.pages.length - 1].title}`;
+
+    // Build keywords from category names and page titles
+    const categoryNames = Array.from(this.categories.values()).map((c) => c.name);
+    const keywords = ['ChurchTools', 'Kalender', ...categoryNames].join(', ');
+
     // Use pdfmake's built-in page size strings — it handles dimensions and orientation natively
     const docDefinition: TDocumentDefinitions = {
+      info: {
+        title: pdfTitle,
+        author: this.config.author || 'ChurchTools PDF Calendar Extension',
+        creator: 'ChurchTools PDF Calendar Extension',
+        subject: `Kalender: ${pdfTitle}`,
+        keywords,
+      },
       pageSize: this.config.pageSize,
       pageOrientation: this.config.orientation,
       pageMargins: [mmToPt(margins.left), mmToPt(margins.top), mmToPt(margins.right), mmToPt(margins.bottom)],
