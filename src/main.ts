@@ -4,7 +4,7 @@
  */
 
 import type { Person } from './utils/ct-types';
-import { churchtoolsClient } from '@churchtools/churchtools-client';
+import { churchtoolsClient, activateLogging, LOG_LEVEL_DEBUG } from '@churchtools/churchtools-client';
 import {
   fetchCalendars,
   fetchAppointments,
@@ -19,9 +19,10 @@ import { CalendarBuilder, generatePdfFilename, downloadBlob as downloadPdfBlob }
 import type { CTCalendar, CTTag, CTAppointment, VisibilityFilter, TimeRange, MonthYear } from './types/calendar.types';
 import './styles/calendar.css';
 
-// Load reset CSS only in development mode
+// Load reset CSS and activate request logging only in development mode
 if (import.meta.env.MODE === 'development') {
   import('./utils/reset.css');
+  activateLogging(LOG_LEVEL_DEBUG);
 }
 
 declare const window: Window &
@@ -153,10 +154,10 @@ function renderApp(app: HTMLDivElement, user: Person) {
           <div class="form-group">
             <label for="pageSize">Papierformat:</label>
             <select name="pageSize" id="pageSize">
+              <option value="A5">A5</option>
               <option value="A4" selected>A4</option>
               <option value="A3">A3</option>
               <option value="A2">A2</option>
-              <option value="A5">A5</option>
             </select>
           </div>
 

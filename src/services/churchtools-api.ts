@@ -38,18 +38,71 @@ export async function fetchAppointments(
     return [];
   }
 
-  const params = {
-    calendar_ids: calendarIds.join(','),
-    from: formatDateForApi(from),
-    to: formatDateForApi(to),
-  };
+  const params = new URLSearchParams();
+  for (const id of calendarIds) {
+    params.append('calendar_ids[]', id.toString());
+  }
+  params.append('from', formatDateForApi(from));
+  params.append('to', formatDateForApi(to));
 
-  const queryString = new URLSearchParams(params).toString();
-  const response = await churchtoolsClient.get<CTApiResponse<CTAppointment[]>>(
+  const queryString = params.toString();
+
+  // The API returns { base: AppointmentBase, calculated: { startDate, endDate } }
+  interface RawAppointment {
+    base: {
+      id: number;
+      caption?: string;
+      title?: string;
+      note?: string | null;
+      subtitle?: string | null;
+      startDate: string;
+      endDate: string;
+      allDay: boolean;
+      version: number;
+      link: string | null;
+      isInternal: boolean;
+      repeatId: number;
+      repeatFrequency?: number | null;
+      repeatUntil?: string | null;
+      repeatOption?: number | null;
+      address?: CTAppointment['address'];
+      information?: string | null;
+      description?: string | null;
+      image?: CTAppointment['image'];
+      calendar: CTAppointment['calendar'];
+    };
+    calculated: {
+      startDate: string;
+      endDate: string;
+    };
+  }
+
+  const response = await churchtoolsClient.get<CTApiResponse<RawAppointment[]>>(
     `/calendars/appointments?${queryString}`
   );
 
-  return response.data ?? response ?? [];
+  const rawList = response.data ?? response ?? [];
+
+  return (rawList as RawAppointment[]).map((item) => ({
+    id: item.base.id,
+    caption: item.base.caption ?? item.base.title ?? '',
+    note: item.base.note ?? item.base.subtitle ?? '',
+    startDate: item.calculated.startDate ?? item.base.startDate,
+    endDate: item.calculated.endDate ?? item.base.endDate,
+    allDay: item.base.allDay,
+    version: item.base.version,
+    link: item.base.link ?? '',
+    isInternal: item.base.isInternal,
+    repeatId: item.base.repeatId,
+    repeatFrequency: item.base.repeatFrequency != null ? String(item.base.repeatFrequency) : undefined,
+    repeatUntil: item.base.repeatUntil ?? undefined,
+    repeatOption: item.base.repeatOption ?? undefined,
+    address: item.base.address ?? null,
+    information: item.base.information ?? item.base.description ?? undefined,
+    image: item.base.image ?? null,
+    calendar: item.base.calendar,
+    tags: [],
+  }));
 }
 
 /**

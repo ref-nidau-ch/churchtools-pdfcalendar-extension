@@ -8,13 +8,13 @@ import pdfMake from 'pdfmake/build/pdfmake';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 import type { TDocumentDefinitions, Content, TableCell } from 'pdfmake/interfaces';
 import { CalendarEntry } from './CalendarEntry';
-import { getPageDimensions } from './GridCalculator';
+import { mmToPt, PAGE_SIZES } from './GridCalculator';
 import { rgbToHex, html2rgb } from './ColorUtils';
 import {
   getDaysInMonth,
   getFirstDayWeekday,
   getWeeksInMonth,
-  DAY_NAMES_DE,
+  DAY_NAMES_SHORT_DE,
   MONTH_NAMES_DE,
 } from '../utils/date-utils';
 import type { RGB, MonthYear } from '../types/calendar.types';
@@ -90,7 +90,7 @@ export class CalendarBuilder {
     };
 
     // Arrange day names based on week start
-    const defaultDayNames = [...DAY_NAMES_DE];
+    const defaultDayNames = [...DAY_NAMES_SHORT_DE];
     this.dayNames = config.dayNames || this.rotateDayNames(defaultDayNames, config.weekStarts);
     this.monthNames = config.monthNames || MONTH_NAMES_DE;
   }
@@ -292,6 +292,7 @@ export class CalendarBuilder {
       style: 'dayHeader',
       alignment: 'center' as const,
       fillColor: HEADER_BG_COLOR,
+      margin: [2, 2, 2, 2],
     }));
     tableBody.push(headerRow);
 
@@ -304,13 +305,13 @@ export class CalendarBuilder {
       for (let col = 0; col < 7; col++) {
         // Empty cells before the 1st day
         if (row === 0 && col < weekdayOfFirst) {
-          tableRow.push({ text: '', fillColor: '#F5F5F5' });
+          tableRow.push({ text: '', fillColor: '#F5F5F5', margin: [2, 2, 2, 2] });
           continue;
         }
 
         // Empty cells after the last day
         if (currentDay > daysInMonth) {
-          tableRow.push({ text: '', fillColor: '#F5F5F5' });
+          tableRow.push({ text: '', fillColor: '#F5F5F5', margin: [2, 2, 2, 2] });
           continue;
         }
 
@@ -325,11 +326,18 @@ export class CalendarBuilder {
       tableBody.push(tableRow);
     }
 
+    // Calculate fixed column widths based on page size
+    const pageSizeMm = PAGE_SIZES[this.config.pageSize] || PAGE_SIZES.A4;
+    const pageWidthMm = this.config.orientation === 'landscape' ? pageSizeMm.height : pageSizeMm.width;
+    const margins = this.config.margins!;
+    const availableWidthPt = mmToPt(pageWidthMm - margins.left - margins.right);
+    const colWidthPt = availableWidthPt / 7;
+
     // Add table
     content.push({
       table: {
         headerRows: 1,
-        widths: Array(7).fill('*'),
+        widths: Array(7).fill(colWidthPt),
         body: tableBody,
       },
       layout: {
@@ -337,10 +345,10 @@ export class CalendarBuilder {
         vLineWidth: () => 0.5,
         hLineColor: () => GRID_BORDER_COLOR,
         vLineColor: () => GRID_BORDER_COLOR,
-        paddingLeft: () => 2,
-        paddingRight: () => 2,
-        paddingTop: () => 2,
-        paddingBottom: () => 2,
+        paddingLeft: () => 0,
+        paddingRight: () => 0,
+        paddingTop: () => 0,
+        paddingBottom: () => 0,
       },
     });
 
@@ -383,6 +391,7 @@ export class CalendarBuilder {
     return {
       stack,
       fillColor: '#FFFFFF',
+      margin: [2, 2, 2, 2],
     };
   }
 
@@ -451,17 +460,13 @@ export class CalendarBuilder {
       throw new Error('No pages added. Please call addMonth() first.');
     }
 
-    const { width, height } = getPageDimensions(this.config.pageSize, this.config.orientation);
     const margins = this.config.margins!;
 
-    // Document definition
+    // Use pdfmake's built-in page size strings — it handles dimensions and orientation natively
     const docDefinition: TDocumentDefinitions = {
-      pageSize: {
-        width: width,
-        height: height,
-      },
+      pageSize: this.config.pageSize,
       pageOrientation: this.config.orientation,
-      pageMargins: [margins.left, margins.top, margins.right, margins.bottom],
+      pageMargins: [mmToPt(margins.left), mmToPt(margins.top), mmToPt(margins.right), mmToPt(margins.bottom)],
       content: [],
       styles: {
         title: {
