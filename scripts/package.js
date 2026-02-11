@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import archiver from 'archiver';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,10 +48,26 @@ if (!fs.existsSync(distDir)) {
 }
 
 try {
-    // Create ZIP archive using system zip command
-    const zipCommand = `cd "${rootDir}" && zip -r "${archivePath}" dist/ -x "*.map" "*.DS_Store"`;
-    execSync(zipCommand, { stdio: 'inherit' });
-    
+    // Create ZIP archive using archiver (cross-platform)
+    const output = fs.createWriteStream(archivePath);
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    const done = new Promise((resolve, reject) => {
+        output.on('close', resolve);
+        archive.on('error', reject);
+    });
+
+    archive.pipe(output);
+    archive.directory(distDir, false, (entry) => {
+        if (entry.name.endsWith('.map') || entry.name === '.DS_Store') {
+            return false;
+        }
+        return entry;
+    });
+    archive.finalize();
+
+    await done;
+
     console.log('✅ Package created successfully!');
     console.log(`📁 Location: ${archivePath}`);
     console.log('');
@@ -59,13 +76,13 @@ try {
     console.log('   2. Go to Admin → Extensions → Upload Extension');
     console.log('   3. Select the ZIP file and install');
     console.log('');
-    
+
     // Show file size
     const stats = fs.statSync(archivePath);
     const fileSizeInBytes = stats.size;
     const fileSizeInMB = (fileSizeInBytes / (1024 * 1024)).toFixed(2);
     console.log(`📊 Package size: ${fileSizeInMB} MB`);
-    
+
 } catch (error) {
     console.error('❌ Error creating package:', error.message);
     process.exit(1);
