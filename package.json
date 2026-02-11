@@ -21,6 +21,6 @@
         "@types/pdfmake": "^0.2.9",
         "archiver": "^7.0.1",
         "typescript": "^5.9.2",
-        "vite": "^7.1.2"
+        "vite": "^7.1.11"
     }
 }
