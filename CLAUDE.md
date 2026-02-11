@@ -28,6 +28,17 @@ npm run deploy
 ```
 Builds the extension and creates a versioned ZIP file in `releases/` directory. The ZIP filename includes project name, version from package.json, and git commit hash.
 
+### Release via GitHub Actions
+To publish a new release:
+1. Update `version` in `package.json` and add an entry in `CHANGELOG.md`
+2. Commit and push to `main`
+3. Tag the commit and push the tag:
+   ```bash
+   git tag v<version>
+   git push origin v<version>
+   ```
+The `.github/workflows/release.yml` workflow will automatically build the project, create the ZIP via `scripts/package.js`, and publish a GitHub Release with the ZIP attached. Release notes are extracted from the matching `CHANGELOG.md` section (falls back to auto-generated notes if not found).
+
 ## High-Level Architecture
 
 ### ChurchTools Extension System
