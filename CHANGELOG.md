@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.8 (2026-02-15)
+
+### Fixes
+- Logo fetch no longer requires admin rights — first tries extracting from the
+  ChurchTools DOM (works for all authenticated users), then falls back to
+  `/api/config` for admins
+
 ## 0.9.7 (2026-02-15)
 
 ### Features
