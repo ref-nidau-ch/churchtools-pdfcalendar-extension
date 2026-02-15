@@ -183,3 +183,6 @@ const selectedCalendarIds = formData.getAll('calendars').map(Number);
 
 ### Environment Variables
 All environment variables must be prefixed with `VITE_` to be accessible in the application (Vite requirement).
+
+### Changelog
+A CHANGELOG.md is keept current

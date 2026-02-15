@@ -47,6 +47,9 @@ if (import.meta.env.MODE === 'development' && username && password) {
 const KEY = import.meta.env.VITE_KEY;
 export { KEY };
 
+// App version injected by Vite at build time
+declare const __APP_VERSION__: string;
+
 // localStorage key for persisted settings
 const SETTINGS_KEY = 'ct-pdfcalendar-settings';
 
@@ -448,8 +451,9 @@ async function generatePdf(
       showEndTime: config.showEndTime as boolean,
       useColors,
       showLegend,
-      margins: { top: 10, right: 10, bottom: 10, left: 10 },
+      margins: { top: 5, right: 5, bottom: 5, left: 5 },
       author: currentUserName,
+      version: __APP_VERSION__,
     });
 
     // Add categories (calendars) for colors and legend

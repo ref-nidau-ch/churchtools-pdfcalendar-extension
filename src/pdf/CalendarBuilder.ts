@@ -60,7 +60,7 @@ interface PageData {
 // Constants
 // ============================================
 
-const DEFAULT_MARGINS = { top: 10, right: 10, bottom: 10, left: 10 };
+const DEFAULT_MARGINS = { top: 2, right: 2, bottom: 2, left: 2 };
 const TITLE_FONT_SIZE = 16;
 const HEADER_FONT_SIZE = 10;
 const DAY_NUMBER_FONT_SIZE = 14;

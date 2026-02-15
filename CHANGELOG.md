@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.4 (2026-02-15)
+
+### Improvements
+- Reduced page margins for more calendar space (10mm → 5mm)
+- Added app version to PDF metadata
+- Inject version from package.json via Vite build-time define
+
 ## 0.9.3 (2026-02-15)
 
 ### Improvements
