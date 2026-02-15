@@ -625,14 +625,16 @@ export class CalendarBuilder {
     const avgCharWidth = LEGEND_FONT_SIZE * 0.5;
     const cellPadH = 4; // horizontal content margin (2 left + 2 right)
     const cellPadV = 2; // base vertical padding
-
     for (let i = 0; i < categories.length; i += 7) {
       const chunk = categories.slice(i, i + 7);
-      const cellWidth = Math.floor(availableWidthPt / chunk.length * 100) / 100;
-      const textWidth = cellWidth - cellPadH;
 
-      // Estimate line count per cell
+      // Equal-width columns, last one uses '*' to fill remaining space and match grid width
+      const cellWidth = Math.floor(availableWidthPt / chunk.length * 100) / 100;
+      const widths: (number | string)[] = chunk.map((_, idx) =>
+        idx === chunk.length - 1 ? '*' : cellWidth
+      );
       const lineCounts = chunk.map((cat) => {
+        const textWidth = cellWidth - cellPadH;
         const charsPerLine = Math.max(1, Math.floor(textWidth / avgCharWidth));
         return Math.ceil(cat.name.length / charsPerLine);
       });
@@ -658,7 +660,7 @@ export class CalendarBuilder {
 
       tables.push({
         table: {
-          widths: chunk.map((_, idx) => idx === chunk.length - 1 ? '*' : cellWidth),
+          widths,
           body: [row],
         },
         layout: {

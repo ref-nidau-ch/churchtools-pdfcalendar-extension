@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.5 (2026-02-15)
+
+### Improvements
+- Vertically center timestamp with calendar title in header row
+- Legend cells use equal widths with last cell filling remaining space
+
 ## 0.9.4 (2026-02-15)
 
 ### Improvements
