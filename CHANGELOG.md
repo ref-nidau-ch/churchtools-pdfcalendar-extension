@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.9.3 (2026-02-15)
+
+### Improvements
+- Entry backgrounds now extend edge-to-edge (no white border around entries)
+- Day numbers rendered behind entries with zero flow height for tighter layout
+- Full weekday names (Montag, Dienstag...) on A4 and larger page sizes
+- Black calendar grid borders for sharper appearance
+- Vertically centered weekday names in header row
+- Separator line shown below last entry in each cell
+
+### Dependencies
+- Updated @churchtools/churchtools-client to 1.6.0
+- Updated typescript to 5.9.3
+- Updated vite to 7.3.1
+
 ## 0.9.2 (2026-02-15)
 
 ### Improvements

@@ -1,7 +1,7 @@
 {
     "name": "churchtools-pdfcalendar-extension",
     "private": true,
-    "version": "0.9.2",
+    "version": "0.9.3",
     "type": "module",
     "description": "ChurchTools Extension zum Generieren von PDF- und Excel-Kalendern",
     "scripts": {
