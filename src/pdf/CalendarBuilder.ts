@@ -302,13 +302,14 @@ export class CalendarBuilder {
 
     const content: Content[] = [];
 
-    // Title row: title centered, timestamp top-right
+    // Title row: title centered, timestamp top-right vertically centered with title
     const timestamp = new Date().toLocaleString('de-DE');
+    const timestampTopOffset = (TITLE_FONT_SIZE - 7) / 2; // center footer font (7pt) within title font height
     content.push({
       columns: [
         { text: '', width: '*' },
         { text: title, style: 'title', alignment: 'center', width: 'auto' },
-        { text: `@${timestamp}`, style: 'footer', alignment: 'right', width: '*' },
+        { text: `@${timestamp}`, style: 'footer', alignment: 'right', width: '*', margin: [0, timestampTopOffset, 0, 0] },
       ],
       margin: [0, 0, 0, 4],
     });
