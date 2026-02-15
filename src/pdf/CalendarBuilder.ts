@@ -5,7 +5,7 @@
  */
 
 import pdfMake from 'pdfmake/build/pdfmake';
-import * as pdfFonts from 'pdfmake/build/vfs_fonts';
+import 'pdfmake/build/vfs_fonts';
 import type { TDocumentDefinitions, Content, TableCell } from 'pdfmake/interfaces';
 import { CalendarEntry } from './CalendarEntry';
 import { mmToPt, PAGE_SIZES } from './GridCalculator';
@@ -19,10 +19,6 @@ import {
   MONTH_NAMES_DE,
 } from '../utils/date-utils';
 import type { RGB, MonthYear } from '../types/calendar.types';
-
-// Initialize pdfmake fonts
-// @ts-expect-error pdfmake types are not fully compatible
-pdfMake.vfs = pdfFonts.pdfMake?.vfs || pdfFonts.default?.pdfMake?.vfs || pdfFonts;
 
 // ============================================
 // Types
@@ -754,16 +750,8 @@ export class CalendarBuilder {
     docDefinition.content = content;
 
     // Generate PDF
-    return new Promise((resolve, reject) => {
-      try {
-        const pdfDoc = pdfMake.createPdf(docDefinition);
-        pdfDoc.getBlob((blob: Blob) => {
-          resolve(blob);
-        });
-      } catch (error) {
-        reject(error);
-      }
-    });
+    const pdfDoc = pdfMake.createPdf(docDefinition);
+    return await pdfDoc.getBlob();
   }
 }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.6 (2026-02-15)
+
+### Dependencies
+- Upgraded pdfmake from 0.2.23 to 0.3.4 (promise-based API, smaller bundle)
+- Upgraded @types/pdfmake from 0.2.x to 0.3.x
+
 ## 0.9.5 (2026-02-15)
 
 ### Improvements
