@@ -21,6 +21,10 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Copy .env.gitactions to .env
+        run: |
+          cp ".env.gitactions" ".env"
+
       - name: Install dependencies
         run: npm ci
 
