@@ -9,6 +9,7 @@ import {
   fetchCalendars,
   fetchAppointments,
   fetchAppointmentTags,
+  fetchSiteLogo,
   filterAppointmentsByVisibility,
   filterAppointmentsByTags,
   sortAppointments,
@@ -57,6 +58,7 @@ const SETTINGS_KEY = 'ct-pdfcalendar-settings';
 let calendars: CTCalendar[] = [];
 let tags: CTTag[] = [];
 let currentUserName = '';
+let siteLogo: string | null = null;
 
 // ============================================
 // Settings Persistence
@@ -156,15 +158,17 @@ async function initApp() {
 
   try {
     // Load data in parallel
-    const [user, loadedCalendars, loadedTags] = await Promise.all([
+    const [user, loadedCalendars, loadedTags, loadedLogo] = await Promise.all([
       churchtoolsClient.get<Person>('/whoami'),
       fetchCalendars(),
       fetchAppointmentTags(),
+      fetchSiteLogo(),
     ]);
 
     calendars = loadedCalendars;
     tags = loadedTags;
     currentUserName = `${user.firstName} ${user.lastName}`.trim();
+    siteLogo = loadedLogo;
 
     // Render UI
     renderApp(app, user);
@@ -454,6 +458,7 @@ async function generatePdf(
       margins: { top: 5, right: 5, bottom: 5, left: 5 },
       author: currentUserName,
       version: __APP_VERSION__,
+      logo: siteLogo ?? undefined,
     });
 
     // Add categories (calendars) for colors and legend

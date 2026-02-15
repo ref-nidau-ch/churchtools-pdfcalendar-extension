@@ -244,6 +244,46 @@ export function groupResourcesByType(
 }
 
 // ============================================
+// Logo API
+// ============================================
+
+/**
+ * Fetches the site logo as a base64 data URL for embedding in PDFs.
+ * Reads the logo path from /api/config (field "site_logo") and fetches
+ * the image relative to the ChurchTools base URL.
+ * Returns null if no logo is configured or on any failure.
+ */
+export async function fetchSiteLogo(): Promise<string | null> {
+  try {
+    const config = await churchtoolsClient.get<{ site_logo?: string }>('/config');
+    const logoPath = config.site_logo;
+    if (!logoPath) return null;
+
+    // Resolve logo path against the ChurchTools base URL
+    const baseUrl = (window as { settings?: { base_url?: string } }).settings?.base_url
+      ?? import.meta.env.VITE_BASE_URL;
+    if (!baseUrl) return null;
+
+    const logoUrl = `${baseUrl.replace(/\/$/, '')}/${logoPath}`;
+    const imgResponse = await fetch(logoUrl, { credentials: 'include' });
+    if (!imgResponse.ok) return null;
+    const blob = await imgResponse.blob();
+    return await blobToDataUrl(blob);
+  } catch {
+    return null;
+  }
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// ============================================
 // Helper Functions
 // ============================================
 

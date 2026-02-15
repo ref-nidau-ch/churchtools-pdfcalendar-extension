@@ -36,6 +36,7 @@ export interface CalendarBuilderConfig {
   monthNames?: string[];
   author?: string;
   version?: string;
+  logo?: string;
 }
 
 export interface Category {
@@ -298,17 +299,38 @@ export class CalendarBuilder {
 
     const content: Content[] = [];
 
-    // Title row: title centered, timestamp top-right vertically centered with title
+    // Title row: optional logo left, title centered, timestamp top-right
     const timestamp = new Date().toLocaleString('de-DE');
     const timestampTopOffset = (TITLE_FONT_SIZE - 7) / 2; // center footer font (7pt) within title font height
-    content.push({
-      columns: [
-        { text: '', width: '*' },
-        { text: title, style: 'title', alignment: 'center', width: 'auto' },
-        { text: `@${timestamp}`, style: 'footer', alignment: 'right', width: '*', margin: [0, timestampTopOffset, 0, 0] },
-      ],
-      margin: [0, 0, 0, 4],
-    });
+    const logoSize = TITLE_FONT_SIZE * 1.4;
+    if (this.config.logo) {
+      // Both side columns get the same fixed width so the title stays centered.
+      // Width must fit whichever is wider: the logo or the timestamp text.
+      const timestampWidth = `@${timestamp}`.length * 7 * 0.5 + 4; // 7pt font, ~0.5 avg char width + padding
+      const sideColWidth = Math.max(logoSize + 4, timestampWidth);
+      content.push({
+        columns: [
+          { image: this.config.logo, fit: [logoSize, logoSize], width: sideColWidth },
+          { text: title, style: 'title', alignment: 'center', width: '*' },
+          {
+            stack: [
+              { text: `@${timestamp}`, style: 'footer', alignment: 'right', margin: [0, timestampTopOffset, 0, 0] },
+            ],
+            width: sideColWidth,
+          },
+        ],
+        margin: [0, 0, 0, 4],
+      });
+    } else {
+      content.push({
+        columns: [
+          { text: '', width: '*' },
+          { text: title, style: 'title', alignment: 'center', width: 'auto' },
+          { text: `@${timestamp}`, style: 'footer', alignment: 'right', width: '*', margin: [0, timestampTopOffset, 0, 0] },
+        ],
+        margin: [0, 0, 0, 4],
+      });
+    }
 
     // Build calendar table
     const tableBody: TableCell[][] = [];

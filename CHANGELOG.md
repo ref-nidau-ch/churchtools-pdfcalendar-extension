@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.7 (2026-02-15)
+
+### Features
+- Display ChurchTools site logo on the left side of the PDF calendar title row
+- Logo is fetched from `/api/config` (`site_logo` field) and embedded as base64
+- Gracefully skipped when no logo is configured
+
 ## 0.9.6 (2026-02-15)
 
 ### Dependencies
