@@ -15,12 +15,12 @@
         "pdfmake": "^0.2.18"
     },
     "devDependencies": {
-        "@churchtools/churchtools-client": "^1.4.0",
+        "@churchtools/churchtools-client": "^1.6.0",
         "@types/archiver": "^7.0.0",
         "@types/node": "^24.3.0",
         "@types/pdfmake": "^0.2.9",
         "archiver": "^7.0.1",
-        "typescript": "^5.9.2",
-        "vite": "^7.1.11"
+        "typescript": "^5.9.3",
+        "vite": "^7.3.1"
     }
 }
