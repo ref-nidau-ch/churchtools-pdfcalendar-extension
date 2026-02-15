@@ -291,10 +291,9 @@ export class CalendarBuilder {
     const showLegend = this.config.showLegend && this.categories.size > 0;
     const numLegendRows = showLegend ? Math.ceil(this.categories.size / 7) : 0;
     const legendHeightPt = numLegendRows > 0 ? numLegendRows * (LEGEND_FONT_SIZE * 1.4 + 12) : 0;
-    const footerHeightPt = 7 * 1.4 + 4;
     const gridBordersPt = (numRows + 2) * 0.5;
     const safetyMarginPt = 5;
-    const gridHeightPt = availableHeightPt - titleHeightPt - headerRowHeightPt - legendHeightPt - footerHeightPt - gridBordersPt - safetyMarginPt;
+    const gridHeightPt = availableHeightPt - titleHeightPt - headerRowHeightPt - legendHeightPt - gridBordersPt - safetyMarginPt;
 
     // Find optimal font size and row heights
     const { entryFontSize, rowHeights } = this.calculateOptimalLayout(
@@ -303,12 +302,15 @@ export class CalendarBuilder {
 
     const content: Content[] = [];
 
-    // Title
+    // Title row: title centered, timestamp top-right
+    const timestamp = new Date().toLocaleString('de-DE');
     content.push({
-      text: title,
-      style: 'title',
-      alignment: 'center',
-      margin: [0, 0, 0, 8],
+      columns: [
+        { text: '', width: '*' },
+        { text: title, style: 'title', alignment: 'center', width: 'auto' },
+        { text: `@${timestamp}`, style: 'footer', alignment: 'right', width: '*' },
+      ],
+      margin: [0, 0, 0, 4],
     });
 
     // Build calendar table
@@ -360,11 +362,11 @@ export class CalendarBuilder {
         headerRows: 1,
         widths: Array(7).fill(colWidthPt),
         heights: (row: number) => row === 0 ? headerRowHeightPt : finalRowHeights[row - 1],
-        body: tableBody,
+  	    body: tableBody,
       },
       layout: {
-        hLineWidth: () => 0.25,
-        vLineWidth: () => 0.25,
+        hLineWidth: () => 0.5,
+        vLineWidth: () => 0.5,
         hLineColor: () => GRID_BORDER_COLOR,
         vLineColor: () => GRID_BORDER_COLOR,
         paddingLeft: () => 0,
@@ -373,19 +375,11 @@ export class CalendarBuilder {
         paddingBottom: () => 0,
       },
     });
-
-    // Legend
+	
+	// Legend (directly after calendar grid, no spacing)
     if (showLegend) {
-      content.push(this.buildLegend(colWidthPt));
+        content.push(this.buildLegend(colWidthPt));
     }
-
-    // Timestamp
-    content.push({
-      text: `Erstellt: ${new Date().toLocaleString('de-DE')}`,
-      style: 'footer',
-      alignment: 'right',
-      margin: [0, 4, 0, 0],
-    });
 
     // Wrap everything in an unbreakable stack so pdfmake never splits
     // the calendar grid across pages.
@@ -633,7 +627,7 @@ export class CalendarBuilder {
 
     for (let i = 0; i < categories.length; i += 7) {
       const chunk = categories.slice(i, i + 7);
-      const cellWidth = availableWidthPt / chunk.length;
+      const cellWidth = Math.floor(availableWidthPt / chunk.length * 100) / 100;
       const textWidth = cellWidth - cellPadH;
 
       // Estimate line count per cell
@@ -663,12 +657,12 @@ export class CalendarBuilder {
 
       tables.push({
         table: {
-          widths: Array(chunk.length).fill(cellWidth),
+          widths: chunk.map((_, idx) => idx === chunk.length - 1 ? '*' : cellWidth),
           body: [row],
         },
         layout: {
-          hLineWidth: () => 0.25,
-          vLineWidth: () => 0.25,
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
           hLineColor: () => GRID_BORDER_COLOR,
           vLineColor: () => GRID_BORDER_COLOR,
           paddingLeft: () => 0,
@@ -676,7 +670,7 @@ export class CalendarBuilder {
           paddingTop: () => 0,
           paddingBottom: () => 0,
         },
-        margin: [0, i === 0 ? 4 : 0, 0, 0],
+        margin: [0, 0, 0, 0],
       });
     }
 
