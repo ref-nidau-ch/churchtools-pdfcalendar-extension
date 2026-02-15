@@ -359,8 +359,8 @@ export class CalendarBuilder {
         body: tableBody,
       },
       layout: {
-        hLineWidth: () => 0.5,
-        vLineWidth: () => 0.5,
+        hLineWidth: () => 0.25,
+        vLineWidth: () => 0.25,
         hLineColor: () => GRID_BORDER_COLOR,
         vLineColor: () => GRID_BORDER_COLOR,
         paddingLeft: () => 0,
@@ -558,8 +558,9 @@ export class CalendarBuilder {
     });
 
     // Entries flow from the top (after day number's flow height)
-    for (const entry of entries) {
-      stack.push(this.buildEntryContent(entry, entryFontSize));
+    for (let i = 0; i < entries.length; i++) {
+      const isLast = i === entries.length - 1;
+      stack.push(this.buildEntryContent(entries[i], entryFontSize, isLast));
     }
 
     return {
@@ -570,9 +571,11 @@ export class CalendarBuilder {
   }
 
   /**
-   * Builds the content of an entry
+   * Builds the content of an entry.
+   * Uses a single-cell table so the background color fills the full width of the
+   * containing cell and exactly the height of the text.
    */
-  private buildEntryContent(entry: CalendarEntry, entryFontSize: number): Content {
+  private buildEntryContent(entry: CalendarEntry, entryFontSize: number, isLast: boolean): Content {
     // Format time
     let timeStr = '';
     if (!entry.hideStartTime && !entry.isAllDay()) {
@@ -591,12 +594,26 @@ export class CalendarBuilder {
     const textColor = rgbToHex(entry.textColor);
 
     return {
-      text,
-      fontSize: entryFontSize,
-      color: textColor,
-      fillColor: bgColor,
-      margin: [0, 1, 0, 1],
-      background: bgColor,
+      margin: [0, 0, 0, 0],
+      table: {
+        widths: ['*'],
+        body: [[{
+          text,
+          fontSize: entryFontSize,
+          color: textColor,
+          fillColor: bgColor,
+          margin: [1, 1, 1, 1],
+        }]],
+      },
+      layout: {
+        hLineWidth: (i: number) => (i > 0 && !isLast) ? 0.5 : 0,
+        vLineWidth: () => 0,
+        hLineColor: () => '#D0D0D0',
+        paddingLeft: () => 0,
+        paddingRight: () => 0,
+        paddingTop: () => 0,
+        paddingBottom: () => 0,
+      },
     };
   }
 
@@ -649,8 +666,8 @@ export class CalendarBuilder {
           body: [row],
         },
         layout: {
-          hLineWidth: () => 0.5,
-          vLineWidth: () => 0.5,
+          hLineWidth: () => 0.25,
+          vLineWidth: () => 0.25,
           hLineColor: () => GRID_BORDER_COLOR,
           vLineColor: () => GRID_BORDER_COLOR,
           paddingLeft: () => 0,

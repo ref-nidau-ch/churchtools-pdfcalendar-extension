@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.2 (2026-02-15)
+
+### Improvements
+- Calendar entry backgrounds now fill the full width of the cell
+- Added light gray separator borders between entries within the same day cell
+- Reduced overall calendar and legend grid border width for a cleaner look
+
 ## 0.9.0 (2026-02-11)
 
 ### Features
