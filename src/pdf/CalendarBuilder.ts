@@ -14,6 +14,7 @@ import {
   getDaysInMonth,
   getFirstDayWeekday,
   getWeeksInMonth,
+  DAY_NAMES_DE,
   DAY_NAMES_SHORT_DE,
   MONTH_NAMES_DE,
 } from '../utils/date-utils';
@@ -38,6 +39,7 @@ export interface CalendarBuilderConfig {
   dayNames?: string[];
   monthNames?: string[];
   author?: string;
+  version?: string;
 }
 
 export interface Category {
@@ -68,7 +70,7 @@ const LEGEND_FONT_SIZE = 8;
 const HEADER_BG_COLOR = '#808080';
 const HEADER_TEXT_COLOR = '#FFFFFF';
 const DAY_NUMBER_COLOR = '#C8C8C8';
-const GRID_BORDER_COLOR = '#808080';
+const GRID_BORDER_COLOR = '#000000';
 
 // ============================================
 // CalendarBuilder Class
@@ -90,8 +92,8 @@ export class CalendarBuilder {
       ...config,
     };
 
-    // Arrange day names based on week start
-    const defaultDayNames = [...DAY_NAMES_SHORT_DE];
+    // Use full day names for A4 and larger, short names for A5
+    const defaultDayNames = config.pageSize === 'A5' ? [...DAY_NAMES_SHORT_DE] : [...DAY_NAMES_DE];
     this.dayNames = config.dayNames || this.rotateDayNames(defaultDayNames, config.weekStarts);
     this.monthNames = config.monthNames || MONTH_NAMES_DE;
   }
@@ -312,13 +314,15 @@ export class CalendarBuilder {
     // Build calendar table
     const tableBody: TableCell[][] = [];
 
-    // Header row (weekdays)
+    // Header row (weekdays) — vertically centered within headerRowHeightPt
+    const headerTextHeight = HEADER_FONT_SIZE * 1.4;
+    const headerPadV = Math.max(0, (headerRowHeightPt - headerTextHeight) / 2);
     const headerRow: TableCell[] = this.dayNames.map((name) => ({
       text: name,
       style: 'dayHeader',
       alignment: 'center' as const,
       fillColor: HEADER_BG_COLOR,
-      margin: [2, 2, 2, 2],
+      margin: [2, headerPadV, 2, headerPadV],
     }));
     tableBody.push(headerRow);
 
@@ -330,12 +334,12 @@ export class CalendarBuilder {
 
       for (let col = 0; col < 7; col++) {
         if (row === 0 && col < weekdayOfFirst) {
-          tableRow.push({ text: '', fillColor: '#F5F5F5', margin: [2, 2, 2, 2] });
+          tableRow.push({ text: '', fillColor: '#F5F5F5' });
           continue;
         }
 
         if (currentDay > daysInMonth) {
-          tableRow.push({ text: '', fillColor: '#F5F5F5', margin: [2, 2, 2, 2] });
+          tableRow.push({ text: '', fillColor: '#F5F5F5' });
           continue;
         }
 
@@ -483,14 +487,13 @@ export class CalendarBuilder {
   ): number[] {
     const lineHeight = entryFontSize * 1.4;
     const entryMarginV = 2; // top + bottom margin per entry
-    const cellMarginV = 4; // top + bottom cell margin
     // Conservative char width estimate — overestimate line count to avoid overflow
     const avgCharWidth = entryFontSize * 0.55;
-    const textWidth = colWidthPt - 4; // minus horizontal cell margins
-    // Day number is placed first in the cell stack and takes flow height,
-    // so include it in the estimation.
+    const textWidth = colWidthPt; // no cell margins, entries go edge-to-edge
+    // Day number uses negative margin so it doesn't consume flow height.
+    // Minimum row height ensures empty cells still have reasonable size.
     const dayNumberHeight = DAY_NUMBER_FONT_SIZE * 1.2;
-    const minRowHeight = dayNumberHeight + cellMarginV;
+    const minRowHeight = dayNumberHeight;
 
     const rowHeights: number[] = [];
     let currentDay = 1;
@@ -503,8 +506,8 @@ export class CalendarBuilder {
         if (currentDay > daysInMonth) { continue; }
 
         const dayEntries = entriesByDay.get(currentDay) || [];
-        // Start with dayNumberHeight (first in the stack) + cell margins
-        let cellHeight = cellMarginV + dayNumberHeight;
+        // Day number is zero-height in flow, so start from 0
+        let cellHeight = 0;
 
         for (const entry of dayEntries) {
           let timeStr = '';
@@ -540,33 +543,31 @@ export class CalendarBuilder {
     entryFontSize: number,
     rowHeight: number,
   ): TableCell {
-    const cellPad = 2;
     const dayNumHeight = DAY_NUMBER_FONT_SIZE * 1.2;
-    const contentAreaHeight = rowHeight - 2 * cellPad;
 
     const stack: Content[] = [];
 
-    // Day number FIRST: its natural position is at y=0 (top of content area).
+    // Day number FIRST so it renders behind entries (PDF painter's model).
     // relativePosition shifts it visually to the bottom-right.
-    // yShift = contentAreaHeight - dayNumHeight (always correct, no estimation).
-    const yShift = Math.max(0, contentAreaHeight - dayNumHeight);
+    // Negative bottom margin collapses its flow height to zero so entries
+    // start at the very top of the cell (no gap).
+    const yShift = Math.max(0, rowHeight - dayNumHeight);
     stack.push({
       text: day.toString(),
       style: 'dayNumber',
       alignment: 'right',
-      relativePosition: { x: 0, y: yShift },
+      relativePosition: { x: -1, y: yShift },
+      margin: [0, 0, 0, -dayNumHeight],
     });
 
-    // Entries flow from the top (after day number's flow height)
-    for (let i = 0; i < entries.length; i++) {
-      const isLast = i === entries.length - 1;
-      stack.push(this.buildEntryContent(entries[i], entryFontSize, isLast));
+    // Entries flow from the top of the cell, edge-to-edge
+    for (const entry of entries) {
+      stack.push(this.buildEntryContent(entry, entryFontSize));
     }
 
     return {
       stack,
-      fillColor: '#FFFFFF',
-      margin: [cellPad, cellPad, cellPad, cellPad],
+      margin: [0, 0, 0, 0],
     };
   }
 
@@ -575,7 +576,7 @@ export class CalendarBuilder {
    * Uses a single-cell table so the background color fills the full width of the
    * containing cell and exactly the height of the text.
    */
-  private buildEntryContent(entry: CalendarEntry, entryFontSize: number, isLast: boolean): Content {
+  private buildEntryContent(entry: CalendarEntry, entryFontSize: number): Content {
     // Format time
     let timeStr = '';
     if (!entry.hideStartTime && !entry.isAllDay()) {
@@ -601,14 +602,14 @@ export class CalendarBuilder {
           text,
           fontSize: entryFontSize,
           color: textColor,
-          fillColor: bgColor,
           margin: [1, 1, 1, 1],
         }]],
       },
       layout: {
-        hLineWidth: (i: number) => (i > 0 && !isLast) ? 0.5 : 0,
+        hLineWidth: (i: number) => i > 0 ? 0.5 : 0,
         vLineWidth: () => 0,
         hLineColor: () => '#D0D0D0',
+        fillColor: () => bgColor,
         paddingLeft: () => 0,
         paddingRight: () => 0,
         paddingTop: () => 0,
@@ -706,7 +707,7 @@ export class CalendarBuilder {
       info: {
         title: pdfTitle,
         author: this.config.author || 'ChurchTools PDF Calendar Extension',
-        creator: 'ChurchTools PDF Calendar Extension',
+        creator: `ChurchTools PDF Calendar Extension${this.config.version ? ` v${this.config.version}` : ''}`,
         subject: `Kalender: ${pdfTitle}`,
         keywords,
       },
