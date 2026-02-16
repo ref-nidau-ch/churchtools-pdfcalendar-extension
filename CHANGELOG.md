@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0 (2026-02-16)
+
+### Security
+- Updated axios to fix high severity DoS and prototype pollution vulnerabilities
+
 ## 0.10.0 (2026-02-16)
 
 ### Improvements
