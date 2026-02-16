@@ -250,62 +250,18 @@ export function groupResourcesByType(
 /**
  * Fetches the site logo as a base64 data URL for embedding in PDFs.
  *
- * Strategy (in order):
- * 1. Extract from ChurchTools DOM — the CT app renders the logo in
- *    the navigation; this works for any authenticated user.
- * 2. Fallback: try GET /api/config for the site_logo path (admin only).
+ * Uses the /logo endpoint which redirects to the actual logo image.
+ * Works for any authenticated user without requiring admin rights.
  *
  * Returns null if no logo is found or on any failure.
  */
 export async function fetchSiteLogo(): Promise<string | null> {
-  // Strategy 1: Find logo in the ChurchTools DOM
-  const domUrl = findLogoInDom();
-  if (domUrl) {
-    const dataUrl = await fetchImageAsDataUrl(domUrl);
-    if (dataUrl) return dataUrl;
-  }
+  const baseUrl = (window as { settings?: { base_url?: string } }).settings?.base_url
+    ?? import.meta.env.VITE_BASE_URL;
+  if (!baseUrl) return null;
 
-  // Strategy 2: Try /api/config (works for admins)
-  try {
-    const config = await churchtoolsClient.get<{ site_logo?: string }>('/config');
-    const logoPath = config.site_logo;
-    if (logoPath) {
-      const baseUrl = (window as { settings?: { base_url?: string } }).settings?.base_url
-        ?? import.meta.env.VITE_BASE_URL;
-      if (baseUrl) {
-        const logoUrl = `${baseUrl.replace(/\/$/, '')}/${logoPath}`;
-        const dataUrl = await fetchImageAsDataUrl(logoUrl);
-        if (dataUrl) return dataUrl;
-      }
-    }
-  } catch { /* not admin or endpoint unavailable */ }
-
-  return null;
-}
-
-/**
- * Searches the ChurchTools DOM for the site logo image.
- * CT renders the logo in the navigation bar; we look for common selectors.
- */
-function findLogoInDom(): string | null {
-  // CT uses an img inside the navigation header for the site logo
-  const selectors = [
-    'img.ct-logo',
-    'img[data-test="site-logo"]',
-    '.ct-header img[src*="images/"]',
-    '.ct-navigation img[src*="images/"]',
-    'header img[src*="images/"]',
-    'nav img[src*="images/"]',
-    'img[src*="images/"][alt*="logo" i]',
-    'img[src*="images/"][class*="logo" i]',
-  ];
-  for (const selector of selectors) {
-    try {
-      const img = document.querySelector<HTMLImageElement>(selector);
-      if (img?.src) return img.src;
-    } catch { /* invalid selector, skip */ }
-  }
-  return null;
+  const logoUrl = `${baseUrl.replace(/\/$/, '')}/logo`;
+  return fetchImageAsDataUrl(logoUrl);
 }
 
 async function fetchImageAsDataUrl(url: string): Promise<string | null> {
