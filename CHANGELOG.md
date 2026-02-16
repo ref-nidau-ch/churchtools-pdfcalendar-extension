@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0 (2026-02-16)
+
+### Improvements
+- Increased calendar entry and legend font size from 8pt to 10pt for better readability
+- Increased top page margin to 15mm for more spacing above the calendar title
+- Accurate text measurement using pdfmake's own Roboto font metrics instead of
+  character width estimation — fixes legend vertical centering and improves
+  adaptive font sizing for calendar entries
+
 ## 0.9.9 (2026-02-16)
 
 ### Improvements

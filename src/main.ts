@@ -455,7 +455,7 @@ async function generatePdf(
       showEndTime: config.showEndTime as boolean,
       useColors,
       showLegend,
-      margins: { top: 5, right: 5, bottom: 5, left: 5 },
+      margins: { top: 15, right: 5, bottom: 5, left: 5 },
       author: currentUserName,
       version: __APP_VERSION__,
       logo: siteLogo ?? undefined,

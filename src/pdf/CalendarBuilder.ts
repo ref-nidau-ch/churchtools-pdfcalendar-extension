@@ -57,12 +57,12 @@ interface PageData {
 // Constants
 // ============================================
 
-const DEFAULT_MARGINS = { top: 2, right: 2, bottom: 2, left: 2 };
+const DEFAULT_MARGINS = { top: 7, right: 2, bottom: 5, left: 2 };
 const TITLE_FONT_SIZE = 16;
 const HEADER_FONT_SIZE = 10;
 const DAY_NUMBER_FONT_SIZE = 14;
-const ENTRY_FONT_SIZE = 8;
-const LEGEND_FONT_SIZE = 8;
+const ENTRY_FONT_SIZE = 10;
+const LEGEND_FONT_SIZE = 10;
 
 const HEADER_BG_COLOR = '#808080';
 const HEADER_TEXT_COLOR = '#FFFFFF';
@@ -500,8 +500,6 @@ export class CalendarBuilder {
   ): number[] {
     const lineHeight = entryFontSize * 1.4;
     const entryMarginV = 2; // top + bottom margin per entry
-    // Conservative char width estimate — overestimate line count to avoid overflow
-    const avgCharWidth = entryFontSize * 0.55;
     const textWidth = colWidthPt; // no cell margins, entries go edge-to-edge
     // Day number uses negative margin so it doesn't consume flow height.
     // Minimum row height ensures empty cells still have reasonable size.
@@ -528,8 +526,7 @@ export class CalendarBuilder {
             timeStr = entry.getFormattedStartTime();
           }
           const text = timeStr + entry.message;
-          const charsPerLine = Math.max(1, Math.floor(textWidth / avgCharWidth));
-          const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
+          const lines = this.estimateLineCount(text, entryFontSize, textWidth);
           cellHeight += lines * lineHeight + entryMarginV;
         }
 
@@ -635,34 +632,84 @@ export class CalendarBuilder {
    * Builds the legend as rows of up to 7 cells, expanding to fill the full width.
    * Text is horizontally and vertically centered within each cell.
    */
+  /**
+   * Initializes pdfmake's internal font object for accurate text measurement.
+   * Creates a minimal throwaway PDF to trigger font loading, then caches the font.
+   */
+  private async initFontMetrics(): Promise<void> {
+    if (this._pdfFont) return;
+    const doc = pdfMake.createPdf({
+      content: [{ text: ' ' }],
+      defaultStyle: { font: 'Roboto' },
+    });
+    // getStream() returns the internal PDFKit document which has fontCache
+    const pdfDoc = await doc.getStream();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this._pdfFont = (pdfDoc as any).fontCache?.['Roboto']?.normal ?? null;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _pdfFont: any = null;
+
+  /**
+   * Measures text width using pdfmake's own embedded Roboto font metrics.
+   * Returns width in PDF points — exactly matching pdfmake's layout engine.
+   */
+  private measureTextWidthPt(text: string, fontSizePt: number): number {
+    if (this._pdfFont?.widthOfString) {
+      return this._pdfFont.widthOfString(text, fontSizePt);
+    }
+    // Fallback: conservative character-based estimate
+    return text.length * fontSizePt * 0.6;
+  }
+
+  /**
+   * Estimates line count using word-by-word wrapping with pdfmake's font metrics.
+   */
+  private estimateLineCount(text: string, fontSizePt: number, maxWidthPt: number): number {
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+    if (words.length === 0) return 1;
+
+    const spaceW = this.measureTextWidthPt(' ', fontSizePt);
+    let lines = 1;
+    let lineW = 0;
+
+    for (const word of words) {
+      const wordW = this.measureTextWidthPt(word, fontSizePt);
+      if (lineW === 0) {
+        lineW = wordW;
+      } else if (lineW + spaceW + wordW <= maxWidthPt) {
+        lineW += spaceW + wordW;
+      } else {
+        lines++;
+        lineW = wordW;
+      }
+    }
+
+    return lines;
+  }
+
   private buildLegend(colWidthPt: number): Content {
     const categories = Array.from(this.categories.values());
     const availableWidthPt = colWidthPt * 7;
     const tables: Content[] = [];
     const lineHeight = LEGEND_FONT_SIZE * 1.4;
-    const avgCharWidth = LEGEND_FONT_SIZE * 0.5;
-    const cellPadH = 4; // horizontal content margin (2 left + 2 right)
-    const cellPadV = 2; // base vertical padding
+    const cellPadH = 4;
+    const cellPadV = 2;
     for (let i = 0; i < categories.length; i += 7) {
       const chunk = categories.slice(i, i + 7);
 
-      // Equal-width columns, last one uses '*' to fill remaining space and match grid width
-      const cellWidth = Math.floor(availableWidthPt / chunk.length * 100) / 100;
-      const widths: (number | string)[] = chunk.map((_, idx) =>
-        idx === chunk.length - 1 ? '*' : cellWidth
+      const cellWidth = availableWidthPt / chunk.length;
+      const widths: number[] = chunk.map(() => cellWidth);
+      const textWidth = cellWidth - cellPadH;
+      const lineCounts = chunk.map((cat) =>
+        this.estimateLineCount(cat.name, LEGEND_FONT_SIZE, textWidth)
       );
-      const lineCounts = chunk.map((cat) => {
-        const textWidth = cellWidth - cellPadH;
-        const charsPerLine = Math.max(1, Math.floor(textWidth / avgCharWidth));
-        return Math.ceil(cat.name.length / charsPerLine);
-      });
       const maxLines = Math.max(...lineCounts);
       const maxContentHeight = maxLines * lineHeight;
 
       const row: TableCell[] = chunk.map((cat, idx) => {
         const cellContentHeight = lineCounts[idx] * lineHeight;
-        const extraTop = (maxContentHeight - cellContentHeight) / 2;
-        const extraBottom = maxContentHeight - cellContentHeight - extraTop;
+        const extra = (maxContentHeight - cellContentHeight) / 2;
 
         return {
           stack: [{
@@ -670,7 +717,7 @@ export class CalendarBuilder {
             fontSize: LEGEND_FONT_SIZE,
             color: rgbToHex(cat.textColor),
             alignment: 'center' as const,
-            margin: [2, cellPadV + extraTop, 2, cellPadV + extraBottom],
+            margin: [2, cellPadV + extra, 2, cellPadV + extra],
           }],
           fillColor: rgbToHex(cat.bgColor),
         };
@@ -705,6 +752,9 @@ export class CalendarBuilder {
     if (this.pages.length === 0) {
       throw new Error('No pages added. Please call addMonth() first.');
     }
+
+    // Initialize pdfmake font metrics for accurate text measurement
+    await this.initFontMetrics();
 
     const margins = this.config.margins!;
 
