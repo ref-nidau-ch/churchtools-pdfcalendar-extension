@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.9 (2026-02-16)
+
+### Improvements
+- Simplified logo fetching to use the `/logo` redirect endpoint instead of DOM
+  scraping and `/api/config` fallback
+
 ## 0.9.8 (2026-02-15)
 
 ### Fixes
