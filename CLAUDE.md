@@ -143,6 +143,22 @@ CalendarBuilder uses a sophisticated grid layout:
 
 Multi-day appointments span cells horizontally and show continuation indicators when spanning weeks.
 
+### Font Measurement with pdfmake Metrics
+
+Text width estimation (for adaptive font sizing and legend vertical centering) uses **pdfmake's own embedded Roboto font metrics** rather than browser Canvas measurement or character width guessing. This is critical because pdfmake bundles its own Roboto font (via `vfs_fonts.js`) whose metrics differ from the browser's Roboto.
+
+**How it works:**
+1. `initFontMetrics()` creates a minimal throwaway PDF via `pdfMake.createPdf()`, then calls `getStream()` to access the internal PDFKit document
+2. The Roboto font object is extracted from `pdfDoc.fontCache['Roboto'].normal`
+3. `measureTextWidthPt()` calls `font.widthOfString(text, fontSize)` which returns the exact width in PDF points
+4. `estimateLineCount()` uses word-by-word wrapping with measured widths to predict line counts
+
+**Where it's used:**
+- `estimateRowContentHeights()` — determines how many lines each calendar entry occupies, driving adaptive font size selection and row height distribution
+- `buildLegend()` — calculates line counts per legend cell for vertical centering margins
+
+**Important:** `initFontMetrics()` must be called (and awaited) before any text measurement. It is called at the start of `generate()`. The fallback (when font metrics are unavailable) uses `text.length * fontSize * 0.6` as a conservative estimate.
+
 ### Safari Cookie Issue
 
 Safari has stricter cookie handling than Chrome for cross-origin requests. Solutions:
