@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 (2026-04-21)
+
+### Security
+- Updated axios, follow-redirects, lodash, minimatch, brace-expansion, pdfmake, picomatch, rollup, and vite to fix moderate and high severity vulnerabilities
+
 ## 1.1.0 (2026-04-21)
 
 ### Features
