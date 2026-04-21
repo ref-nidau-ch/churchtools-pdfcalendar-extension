@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0 (2026-04-21)
+
+### Features
+- Added "Nächstes Jahr" export option to export all 12 months of the next year
+
 ## 1.0.0 (2026-02-16)
 
 ### Security

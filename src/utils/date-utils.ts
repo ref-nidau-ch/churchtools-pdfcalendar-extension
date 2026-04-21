@@ -101,6 +101,19 @@ export function calculateDateRange(timeRange: TimeRange): {
       };
     }
 
+    case 'nextyear': {
+      const nextYear = currentYear + 1;
+      const months: MonthYear[] = [];
+      for (let m = 1; m <= 12; m++) {
+        months.push({ month: m, year: nextYear });
+      }
+      return {
+        startDate: getFirstDayOfMonth(nextYear, 1),
+        endDate: getLastDayOfMonth(nextYear, 12),
+        months,
+      };
+    }
+
     default: // 'current'
       return {
         startDate: getFirstDayOfMonth(currentYear, currentMonth),

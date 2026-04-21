@@ -244,6 +244,7 @@ function renderApp(app: HTMLDivElement, user: Person) {
                 <option value="current">Aktueller Monat</option>
                 <option value="next" selected>Nächster Monat</option>
                 <option value="year">Ganzes Jahr (12 Seiten)</option>
+                <option value="nextyear">Nächstes Jahr (12 Seiten)</option>
               </select>
             </div>
 

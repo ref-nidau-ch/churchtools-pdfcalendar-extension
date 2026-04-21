@@ -157,7 +157,7 @@ export interface CalendarEntryData {
 export type RGB = [number, number, number];
 
 // Time range options
-export type TimeRange = 'current' | 'previous' | 'next' | 'year';
+export type TimeRange = 'current' | 'previous' | 'next' | 'year' | 'nextyear';
 
 // Visibility filter
 export type VisibilityFilter = 'all' | 'public' | 'private';
