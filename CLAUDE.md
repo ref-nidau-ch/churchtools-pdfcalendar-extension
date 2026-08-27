@@ -133,6 +133,15 @@ Date utilities (utils/date-utils.ts) provide:
 
 German locale constants: `DAY_NAMES_DE`, `MONTH_NAMES_DE`
 
+**Timezones:** The ChurchTools API returns appointment dates as UTC/ISO strings
+(`"2024-01-15T10:00:00Z"`). `new Date(...)` plus the local getters (`getHours()`,
+`getDate()`, ...) yields the correct local wall-clock time everywhere — that is what
+the PDF export renders. The one exception is the Excel export: ExcelJS serializes a
+`Date` via `date.getTime()`, so it stores the *UTC* instant as the Excel serial
+number, and Excel has no timezone concept to convert it back. `toExcelLocalDate()`
+in `xlsx/ExcelExporter.ts` shifts by `getTimezoneOffset()` so the sheet shows local
+time. Any new date cell in the Excel export must go through that helper.
+
 ### PDF Grid System
 
 CalendarBuilder uses a sophisticated grid layout:

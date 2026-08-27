@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.2 (2026-08-27)
+
+### Fixes
+- Excel export wrote start/end times in UTC instead of local time (appointments
+  appeared 1-2 hours early, sometimes on the previous day). Times now match the
+  PDF export.
+
 ## 1.1.1 (2026-04-21)
 
 ### Security

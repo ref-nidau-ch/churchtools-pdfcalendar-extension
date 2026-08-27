@@ -132,13 +132,13 @@ export async function exportToExcel(config: ExcelExportConfig): Promise<Blob> {
 
     // Start date
     const startCell = row.getCell(colIdx++);
-    startCell.value = new Date(apt.startDate);
+    startCell.value = toExcelLocalDate(new Date(apt.startDate));
     startCell.numFmt = 'DD.MM.YYYY HH:mm';
 
     // End date (if enabled)
     if (showEndTime) {
       const endCell = row.getCell(colIdx++);
-      endCell.value = new Date(apt.endDate);
+      endCell.value = toExcelLocalDate(new Date(apt.endDate));
       endCell.numFmt = 'DD.MM.YYYY HH:mm';
     }
 
@@ -217,6 +217,20 @@ export async function exportToExcel(config: ExcelExportConfig): Promise<Blob> {
 // ============================================
 // Helper Functions
 // ============================================
+
+/**
+ * Converts a Date to the value ExcelJS must receive so that the local wall-clock
+ * time ends up in the sheet.
+ *
+ * ExcelJS serializes dates via `date.getTime()` (see `utils.dateToExcel`), i.e. it
+ * writes the UTC instant as the Excel serial number. Excel itself has no timezone
+ * concept, so an appointment at 10:00 local time (CEST) would show up as 08:00.
+ * Shifting by the timezone offset makes the UTC representation carry the local
+ * wall-clock time, matching what the PDF export renders via `getHours()`.
+ */
+function toExcelLocalDate(date: Date): Date {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
+}
 
 /**
  * Builds the column definition
