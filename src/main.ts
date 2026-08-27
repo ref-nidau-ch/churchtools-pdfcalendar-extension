@@ -13,6 +13,7 @@ import {
   filterAppointmentsByVisibility,
   filterAppointmentsByTags,
   sortAppointments,
+  formatTagNames,
 } from './services/churchtools-api';
 import { calculateDateRange, formatMonthYear } from './utils/date-utils';
 import { exportToExcel, downloadBlob, generateFilename } from './xlsx/ExcelExporter';
@@ -103,6 +104,7 @@ function restoreSettings(): void {
     ['showEndTime', settings.showEndTime],
     ['useColors', settings.useColors],
     ['showLegend', settings.showLegend],
+    ['showTags', settings.showTags],
   ];
   for (const [id, checked] of checkboxes) {
     const el = document.getElementById(id) as HTMLInputElement | null;
@@ -290,6 +292,11 @@ function renderApp(app: HTMLDivElement, user: Person) {
               <label for="showLegend">Legende anzeigen</label>
             </div>
 
+            <div class="checkbox-option">
+              <input type="checkbox" name="showTags" id="showTags">
+              <label for="showTags">Tags anzeigen (nur PDF)</label>
+            </div>
+
             <div class="button-group">
               <button type="submit" name="format" value="pdf" class="btn btn-primary" id="btn-pdf">
                 PDF generieren
@@ -393,6 +400,7 @@ async function handleFormSubmit(event: SubmitEvent) {
       showEndTime: formData.has('showEndTime'),
       useColors: formData.has('useColors'),
       showLegend: formData.has('showLegend'),
+      showTags: formData.has('showTags'),
     };
 
     // Persist current form settings
@@ -404,6 +412,7 @@ async function handleFormSubmit(event: SubmitEvent) {
       showEndTime: config.showEndTime as boolean,
       useColors: config.useColors as boolean,
       showLegend: config.showLegend as boolean,
+      showTags: config.showTags as boolean,
       calendarIds: selectedCalendarIds,
       tagIds: selectedTagIds,
     });
@@ -440,6 +449,7 @@ async function generatePdf(
   const months = config.months as MonthYear[];
   const useColors = config.useColors as boolean;
   const showLegend = config.showLegend as boolean && selectedCalendars.length > 1;
+  const showTags = config.showTags as boolean;
 
   console.log('PDF-Generierung:', {
     appointments: appointments.length,
@@ -509,6 +519,14 @@ async function generatePdf(
         let title = apt.caption;
         if (apt.note && apt.note.trim()) {
           title = `${apt.caption} (${apt.note.trim()})`;
+        }
+
+        // Append tags when enabled
+        if (showTags) {
+          const tagNames = formatTagNames(apt);
+          if (tagNames) {
+            title = `${title} [${tagNames}]`;
+          }
         }
 
         if (useColors && calendar) {

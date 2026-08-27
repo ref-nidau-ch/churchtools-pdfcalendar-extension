@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0 (2026-08-27)
+
+### Features
+- Excel export has a new "Tags" column (after "Titel") listing all tags of an
+  appointment, comma-separated
+- New option "Tags anzeigen (nur PDF)" appends the tags of an entry in brackets
+  to the calendar text, e.g. `10h Gottesdienst [Musik, Jugend]`. Off by default,
+  so existing PDFs are unchanged.
+
 ## 1.1.2 (2026-08-27)
 
 ### Fixes

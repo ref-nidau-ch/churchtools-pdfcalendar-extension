@@ -180,6 +180,7 @@ export interface UserSettings {
   showEndTime: boolean;
   useColors: boolean;
   showLegend: boolean;
+  showTags: boolean;
   calendarIds: number[];
   tagIds: number[];
 }
@@ -193,6 +194,7 @@ export interface CalendarFormData {
   showEndTime: boolean;
   useColors: boolean;
   showLegend: boolean;
+  showTags: boolean;
   visibility: VisibilityFilter;
   tagIds?: number[];
 }

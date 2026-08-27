@@ -306,6 +306,14 @@ export function parseApiDate(dateString: string): Date {
 }
 
 /**
+ * Formats the tag names of an appointment as a comma-separated string.
+ * Returns an empty string when the appointment has no tags.
+ */
+export function formatTagNames(appointment: CTAppointment): string {
+  return (appointment.tags ?? []).map((tag) => tag.name).join(', ');
+}
+
+/**
  * Formats address as string
  */
 export function formatAddress(appointment: CTAppointment): string {

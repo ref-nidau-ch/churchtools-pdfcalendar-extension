@@ -12,9 +12,11 @@ A ChurchTools extension that generates printable PDF calendars and Excel exports
   - Calendar colors with automatic contrast text
   - Legend showing calendar categories
   - Multi-day event support with continuation markers
+  - Optional appointment tags appended to entries, e.g. `10h Gottesdienst [Musik, Jugend]`
 
 - **Excel Export**
   - Full appointment details in spreadsheet format
+  - Tags column listing all tags of an appointment, comma-separated
   - Hyperlinks for URLs and images
   - Auto-filter enabled
   - Alternating row colors for different months

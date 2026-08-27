@@ -5,7 +5,7 @@
 
 import ExcelJS from 'exceljs';
 import type { CTAppointment, CTCalendar, MonthYear } from '../types/calendar.types';
-import { formatAddress, getAppointmentImageUrl } from '../services/churchtools-api';
+import { formatAddress, formatTagNames, getAppointmentImageUrl } from '../services/churchtools-api';
 import { formatMonthYear } from '../utils/date-utils';
 
 // ============================================
@@ -145,6 +145,9 @@ export async function exportToExcel(config: ExcelExportConfig): Promise<Blob> {
     // Title
     row.getCell(colIdx++).value = apt.caption;
 
+    // Tags (comma-separated)
+    row.getCell(colIdx++).value = formatTagNames(apt);
+
     // Note
     row.getCell(colIdx++).value = apt.note || '';
 
@@ -253,6 +256,7 @@ function buildColumns(
 
   columns.push(
     { header: 'Titel', key: 'title', width: 30 },
+    { header: 'Tags', key: 'tags', width: 25 },
     { header: 'Bemerkung', key: 'note', width: 30 },
     { header: 'Weitere Infos', key: 'info', width: 30 },
     { header: 'Link', key: 'link', width: 25 },
