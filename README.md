@@ -193,6 +193,10 @@ This extension uses the following ChurchTools API endpoints:
 - `GET /calendars/appointments` - Fetch appointments
 - `GET /calendars/appointments/tags` - Get appointment tags
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the notable changes of each release.
+
 ## License
 
 [Add your license here]
