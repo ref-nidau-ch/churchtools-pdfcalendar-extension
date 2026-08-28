@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1 (2026-08-28)
+
+### Improvements
+- Excel export: moved the "Tags" column between "Adresse" and "Bild"
+
 ## 1.2.0 (2026-08-27)
 
 ### Features

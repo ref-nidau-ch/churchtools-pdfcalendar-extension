@@ -145,9 +145,6 @@ export async function exportToExcel(config: ExcelExportConfig): Promise<Blob> {
     // Title
     row.getCell(colIdx++).value = apt.caption;
 
-    // Tags (comma-separated)
-    row.getCell(colIdx++).value = formatTagNames(apt);
-
     // Note
     row.getCell(colIdx++).value = apt.note || '';
 
@@ -167,6 +164,9 @@ export async function exportToExcel(config: ExcelExportConfig): Promise<Blob> {
 
     // Address
     row.getCell(colIdx++).value = formatAddress(apt);
+
+    // Tags (comma-separated)
+    row.getCell(colIdx++).value = formatTagNames(apt);
 
     // Image URL
     const imageUrl = getAppointmentImageUrl(apt);
@@ -256,11 +256,11 @@ function buildColumns(
 
   columns.push(
     { header: 'Titel', key: 'title', width: 30 },
-    { header: 'Tags', key: 'tags', width: 25 },
     { header: 'Bemerkung', key: 'note', width: 30 },
     { header: 'Weitere Infos', key: 'info', width: 30 },
     { header: 'Link', key: 'link', width: 25 },
     { header: 'Adresse', key: 'address', width: 30 },
+    { header: 'Tags', key: 'tags', width: 25 },
     { header: 'Bild', key: 'image', width: 25 }
   );
 
