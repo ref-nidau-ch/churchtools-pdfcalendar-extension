@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.1 (2026-09-19)
+
+### Security
+- Updated axios, postcss, tmp, vite, esbuild, form-data, nanoid and brace-expansion to fix
+  high, moderate and low severity vulnerabilities
+- Forced exceljs' `uuid` dependency to 11.1.1 via npm `overrides` (exceljs 4.4.0 still pins uuid 8);
+  the browser build uses exceljs' prebuilt bundle and only `uuid.v4`, so it was not affected in practice
+
 ## 1.3.0 (2026-09-19)
 
 ### Features
