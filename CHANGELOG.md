@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0 (2026-09-19)
+
+### Features
+- Added "Letztes Jahr" export option to export all 12 months of the previous year
+- Added "Benutzerdefiniert" export option with Von/Bis date inputs for a user defined date range;
+  the PDF contains one page per month touched by the range, but only appointments within the range.
+  The chosen dates are remembered in the saved settings
+
 ## 1.2.1 (2026-08-28)
 
 ### Improvements

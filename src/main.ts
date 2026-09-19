@@ -15,7 +15,7 @@ import {
   sortAppointments,
   formatTagNames,
 } from './services/churchtools-api';
-import { calculateDateRange, formatMonthYear } from './utils/date-utils';
+import { calculateDateRange, calculateCustomRange, formatMonthYear } from './utils/date-utils';
 import { exportToExcel, downloadBlob, generateFilename } from './xlsx/ExcelExporter';
 import { CalendarBuilder, generatePdfFilename, downloadBlob as downloadPdfBlob } from './pdf/CalendarBuilder';
 import type { CTCalendar, CTTag, CTAppointment, VisibilityFilter, TimeRange, MonthYear, UserSettings } from './types/calendar.types';
@@ -98,6 +98,17 @@ function restoreSettings(): void {
     const el = document.getElementById(id) as HTMLSelectElement | null;
     if (el) el.value = value;
   }
+
+  // Restore custom date range
+  const dateInputs: Array<[string, string | undefined]> = [
+    ['customStartDate', settings.customStartDate],
+    ['customEndDate', settings.customEndDate],
+  ];
+  for (const [id, value] of dateInputs) {
+    const el = document.getElementById(id) as HTMLInputElement | null;
+    if (el && value) el.value = value;
+  }
+  updateCustomRangeVisibility();
 
   // Restore static checkboxes
   const checkboxes: Array<[string, boolean]> = [
@@ -197,6 +208,11 @@ function renderApp(app: HTMLDivElement, user: Person) {
   const publicCalendars = calendars.filter((c) => c.isPublic);
   const privateCalendars = calendars.filter((c) => !c.isPublic);
 
+  // Default custom range: current month
+  const today = new Date();
+  const defaultStart = formatDateForInput(new Date(today.getFullYear(), today.getMonth(), 1));
+  const defaultEnd = formatDateForInput(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+
   app.innerHTML = `
     <div class="pdf-calendar-container">
       <h1>PDF Kalender Generator</h1>
@@ -245,9 +261,22 @@ function renderApp(app: HTMLDivElement, user: Person) {
                 <option value="previous">Vorheriger Monat</option>
                 <option value="current">Aktueller Monat</option>
                 <option value="next" selected>Nächster Monat</option>
+                <option value="lastyear">Letztes Jahr (12 Seiten)</option>
                 <option value="year">Ganzes Jahr (12 Seiten)</option>
                 <option value="nextyear">Nächstes Jahr (12 Seiten)</option>
+                <option value="custom">Benutzerdefiniert</option>
               </select>
+            </div>
+
+            <div class="form-group custom-range" id="custom-range" hidden>
+              <div class="custom-range-field">
+                <label for="customStartDate">Von:</label>
+                <input type="date" name="customStartDate" id="customStartDate" value="${defaultStart}">
+              </div>
+              <div class="custom-range-field">
+                <label for="customEndDate">Bis:</label>
+                <input type="date" name="customEndDate" id="customEndDate" value="${defaultEnd}">
+              </div>
             </div>
 
             <div class="form-group">
@@ -315,6 +344,9 @@ function renderApp(app: HTMLDivElement, user: Person) {
   const form = document.getElementById('calendar-form') as HTMLFormElement;
   form.addEventListener('submit', handleFormSubmit);
 
+  // Show date inputs only for custom time range
+  document.getElementById('timeRange')?.addEventListener('change', updateCustomRangeVisibility);
+
   // Select-all for public calendars
   setupSelectAll('select-all-public', 'cal-public');
   setupSelectAll('select-all-private', 'cal-private');
@@ -374,7 +406,20 @@ async function handleFormSubmit(event: SubmitEvent) {
 
     // Calculate time range
     const timeRange = formData.get('timeRange') as TimeRange;
-    const { startDate, endDate, months } = calculateDateRange(timeRange);
+    const customStartDate = (formData.get('customStartDate') as string | null) ?? '';
+    const customEndDate = (formData.get('customEndDate') as string | null) ?? '';
+    let range: ReturnType<typeof calculateDateRange>;
+    if (timeRange === 'custom') {
+      const customRange = calculateCustomRange(customStartDate, customEndDate);
+      if (!customRange) {
+        alert('Bitte einen gültigen Zeitraum angeben (Von-Datum darf nicht nach dem Bis-Datum liegen).');
+        return;
+      }
+      range = customRange;
+    } else {
+      range = calculateDateRange(timeRange);
+    }
+    const { startDate, endDate, months } = range;
 
     // Load appointments
     console.log(`Lade Termine von ${startDate.toISOString()} bis ${endDate.toISOString()}...`);
@@ -406,6 +451,8 @@ async function handleFormSubmit(event: SubmitEvent) {
     // Persist current form settings
     saveSettings({
       timeRange,
+      customStartDate,
+      customEndDate,
       pageSize: config.pageSize as string,
       orientation: config.orientation as string,
       visibility,
@@ -601,6 +648,23 @@ async function generateExcel(
 // ============================================
 // Helper Functions
 // ============================================
+
+/**
+ * Shows the custom date inputs only when the custom time range is selected
+ */
+function updateCustomRangeVisibility(): void {
+  const select = document.getElementById('timeRange') as HTMLSelectElement | null;
+  const customRange = document.getElementById('custom-range');
+  if (!select || !customRange) return;
+  customRange.hidden = select.value !== 'custom';
+}
+
+/**
+ * Formats a date as YYYY-MM-DD (local time) for date inputs
+ */
+function formatDateForInput(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 /**
  * Wires up a select-all checkbox to toggle all checkboxes with the given class

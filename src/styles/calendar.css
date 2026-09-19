@@ -95,6 +95,44 @@ select:focus {
   box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
 }
 
+/* Custom Date Range */
+.custom-range {
+  display: flex;
+  gap: 12px;
+}
+
+.custom-range[hidden] {
+  display: none;
+}
+
+.custom-range-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.custom-range-field label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #444;
+}
+
+input[type='date'] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  background: #fff;
+}
+
+input[type='date']:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+}
+
 /* Checkbox Options */
 .checkbox-option {
   display: flex;

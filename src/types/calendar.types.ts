@@ -157,7 +157,7 @@ export interface CalendarEntryData {
 export type RGB = [number, number, number];
 
 // Time range options
-export type TimeRange = 'current' | 'previous' | 'next' | 'year' | 'nextyear';
+export type TimeRange = 'current' | 'previous' | 'next' | 'lastyear' | 'year' | 'nextyear' | 'custom';
 
 // Visibility filter
 export type VisibilityFilter = 'all' | 'public' | 'private';
@@ -174,6 +174,8 @@ export interface MonthYear {
 // Persisted user settings for localStorage
 export interface UserSettings {
   timeRange: TimeRange;
+  customStartDate?: string; // YYYY-MM-DD, only used for timeRange 'custom'
+  customEndDate?: string; // YYYY-MM-DD, only used for timeRange 'custom'
   pageSize: string;
   orientation: string;
   visibility: VisibilityFilter;

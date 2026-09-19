@@ -88,6 +88,9 @@ export function calculateDateRange(timeRange: TimeRange): {
       };
     }
 
+    case 'lastyear':
+      return calculateYearRange(currentYear - 1);
+
     case 'year': {
       // January to December of the current year
       const months: MonthYear[] = [];
@@ -140,6 +143,59 @@ export function calculateYearRange(year: number): {
     endDate: getLastDayOfMonth(year, 12),
     months,
   };
+}
+
+/**
+ * Calculates time range for a user defined period.
+ * The date range is exact; the month list covers every month touched by it.
+ * @param start - Start date as YYYY-MM-DD (inclusive)
+ * @param end - End date as YYYY-MM-DD (inclusive)
+ * @returns null if a date is invalid or start is after end
+ */
+export function calculateCustomRange(start: string, end: string): {
+  startDate: Date;
+  endDate: Date;
+  months: MonthYear[];
+} | null {
+  const startDate = parseIsoDate(start);
+  const endDate = parseIsoDate(end);
+  if (!startDate || !endDate || startDate > endDate) {
+    return null;
+  }
+  endDate.setHours(23, 59, 59, 999);
+
+  const months: MonthYear[] = [];
+  let year = startDate.getFullYear();
+  let month = startDate.getMonth() + 1;
+  const lastYear = endDate.getFullYear();
+  const lastMonth = endDate.getMonth() + 1;
+  while (year < lastYear || (year === lastYear && month <= lastMonth)) {
+    months.push({ month, year });
+    month++;
+    if (month > 12) {
+      month = 1;
+      year++;
+    }
+  }
+
+  return { startDate, endDate, months };
+}
+
+/**
+ * Parses a YYYY-MM-DD string as local date (00:00)
+ */
+function parseIsoDate(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+  // Reject overflowing dates like 2024-02-31
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+  return date;
 }
 
 // ============================================

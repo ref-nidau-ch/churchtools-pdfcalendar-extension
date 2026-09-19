@@ -25,7 +25,7 @@ A ChurchTools extension that generates printable PDF calendars and Excel exports
   - Select specific calendars
   - Filter by tags
   - Visibility filter (public/private/all)
-  - Time range selection (current/previous/next month, full year)
+  - Time range selection (current/previous/next month, last/current/next year, custom date range)
 
 - **Settings Persistence**
   - Form selections (calendars, tags, options) are saved to localStorage
@@ -162,7 +162,7 @@ The deployment package will be created in the `releases/` directory.
 |--------|-------------|
 | Calendars | Select which calendars to include |
 | Tags | Filter appointments by tags (optional) |
-| Time Range | Current/Previous/Next month or Full year |
+| Time Range | Current/Previous/Next month, Last/Current/Next year, or a custom date range (Von/Bis) |
 | Page Size | A2, A3, A4, A5 |
 | Orientation | Landscape or Portrait |
 | Visibility | Public only, Private only, or All |

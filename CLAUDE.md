@@ -81,7 +81,7 @@ The extension handles authentication differently in dev vs production:
 
 ### Settings Persistence
 
-User form selections are persisted to `localStorage` under key `ct-pdfcalendar-settings` (see `UserSettings` interface in `types/calendar.types.ts`). This includes calendar/tag selections, time range, page size, orientation, visibility, and checkbox options.
+User form selections are persisted to `localStorage` under key `ct-pdfcalendar-settings` (see `UserSettings` interface in `types/calendar.types.ts`). This includes calendar/tag selections, time range (plus `customStartDate`/`customEndDate` as `YYYY-MM-DD` for the `custom` range), page size, orientation, visibility, and checkbox options.
 
 - **Save**: `saveSettings()` is called after each form submission in `handleFormSubmit()`
 - **Load**: `restoreSettings()` is called at the end of `renderApp()` after the DOM is built
