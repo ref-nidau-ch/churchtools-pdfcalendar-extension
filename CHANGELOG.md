@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.2 (2026-09-19)
+
+### Maintenance
+- Updated pdfmake 0.3.7 → 0.3.11, @churchtools/churchtools-client 1.6.0 → 1.7.3,
+  @types/pdfmake 0.3.1 → 0.3.3 and @types/node 24.3.0 → 24.13.6 (minor updates)
+- Release workflow builds with Node.js 24 instead of the end-of-life Node.js 20
+
 ## 1.3.1 (2026-09-19)
 
 ### Security
